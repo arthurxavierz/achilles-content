@@ -24,7 +24,7 @@ const demoState = {
 const emptyState = { subscription: null, plans: [], packs: [], recent: [], pending: [] }
 
 export function BillingProvider({ children }) {
-  const { user, profile, patchProfile } = useAuth()
+  const { user, profile, patchProfile, refreshProfile } = useAuth()
   const [billing, setBilling] = useState(DEMO_MODE ? demoState : emptyState)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -34,7 +34,8 @@ export function BillingProvider({ children }) {
     setLoading(true)
     setError('')
     try {
-      const data = await api('get-billing')
+      // O saldo vive em profiles. Recarrega junto para o cabecalho nao ficar defasado.
+      const [data] = await Promise.all([api('get-billing'), refreshProfile()])
       setBilling({
         subscription: normalizeSubscription(data.subscription),
         plans: normalizePlans(data.plans),
@@ -47,7 +48,7 @@ export function BillingProvider({ children }) {
     } finally {
       setLoading(false)
     }
-  }, [user?.id])
+  }, [user?.id, refreshProfile])
 
   useEffect(() => { refresh() }, [refresh])
 

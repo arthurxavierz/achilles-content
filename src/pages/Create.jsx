@@ -122,6 +122,13 @@ export default function Create() {
     return () => clearInterval(timer)
   }, [job?.id, job?.status])
 
+  // Fim do job: uma falha estorna creditos, entao o saldo precisa ser relido.
+  useEffect(() => {
+    if (DEMO_MODE || !job?.id) return
+    if (job.status !== 'done' && job.status !== 'failed') return
+    refresh()
+  }, [job?.id, job?.status])
+
   // Terminou: busca as URLs assinadas e mostra as artes de verdade.
   useEffect(() => {
     if (DEMO_MODE || job?.status !== 'done' || !generationId || images.length) return
