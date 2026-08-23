@@ -1,0 +1,20 @@
+node_modules/
+dist/
+.netlify/
+.vite/
+
+# Segredos. Nunca versionar.
+.env
+.env.local
+.env.production
+.env.*.local
+
+# O .env.demo nao contem segredos e fica versionado de proposito.
+!.env.demo
+
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

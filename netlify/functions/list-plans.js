@@ -1,0 +1,2 @@
+import { json,safeError,service } from './_shared.js'
+export async function handler(event){try{if(event.httpMethod!=='GET')return json(405,{error:'Método não permitido'});const svc=service();const [{data:plans,error:pErr},{data:packs,error:cErr}]=await Promise.all([svc.from('plans').select('*').eq('active',true).order('sort_order'),svc.from('credit_packs').select('*').eq('active',true).order('sort_order')]);if(pErr||cErr)throw pErr||cErr;return json(200,{plans,packs})}catch(error){return safeError(error)}}

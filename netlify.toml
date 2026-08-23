@@ -1,0 +1,36 @@
+[build]
+command = "npm run build"
+publish = "dist"
+functions = "netlify/functions"
+
+[functions]
+node_bundler = "esbuild"
+node_version = "20"
+
+# SPA. Todas as rotas do app entregam o index e o React Router resolve o caminho.
+# O catch-all precisa ficar por ultimo e nao intercepta /.netlify/functions/*.
+[[redirects]]
+from = "/*"
+to = "/index.html"
+status = 200
+
+[[headers]]
+for = "/*"
+  [headers.values]
+  X-Content-Type-Options = "nosniff"
+  X-Frame-Options = "DENY"
+  Referrer-Policy = "strict-origin-when-cross-origin"
+  Permissions-Policy = "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+  Strict-Transport-Security = "max-age=31536000; includeSubDomains"
+  Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://www.mercadopago.com.br https://www.mercadopago.com; object-src 'none'"
+
+[[headers]]
+for = "/assets/*"
+  [headers.values]
+  Cache-Control = "public, max-age=31536000, immutable"
+
+[functions."cron-renew-subscriptions"]
+schedule = "0 8 * * *"
+
+[functions."cron-maintenance"]
+schedule = "25 4 * * *"
