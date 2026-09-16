@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { DEMO_MODE } from '../lib/config'
 import { supabase } from '../lib/supabase'
 
@@ -18,14 +18,6 @@ export function AuthProvider({ children }) {
     setProfile(data)
     setLoading(false)
   }
-
-  // O saldo muda a cada geracao. Sem reler o perfil, o contador do cabecalho
-  // fica parado ate o usuario recarregar a pagina.
-  const refreshProfile = useCallback(async () => {
-    if (DEMO_MODE || !session?.user?.id) return
-    const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).single()
-    if (data) setProfile(data)
-  }, [session?.user?.id])
 
   useEffect(() => {
     if (DEMO_MODE) return
@@ -63,7 +55,7 @@ export function AuthProvider({ children }) {
     setProfile(current => current ? { ...current, ...partial } : current)
   }
 
-  const value = useMemo(() => ({ session, user: session?.user || null, profile, loading, login, logout, recover, patchProfile, refreshProfile }), [session, profile, loading, refreshProfile])
+  const value = useMemo(() => ({ session, user: session?.user || null, profile, loading, login, logout, recover, patchProfile }), [session, profile, loading])
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 

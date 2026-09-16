@@ -1,47 +1,126 @@
 import React, { useEffect, useState } from 'react'
 import { ArrowRight, ChevronDown } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { DEFAULT_PLANS, FORMAT_PRICING } from '../../shared/pricing'
+import { DEFAULT_PACKS, DEFAULT_PLANS, DEFAULT_PRESETS, DEFAULT_PRICING, FORMATS, FREE_SIGNUP_CREDITS, copyCredits, imageCredits, totalCredits } from '../../shared/pricing'
 import { DEMO_MODE } from '../lib/config'
-import { publicApi } from '../lib/api'
-import { normalizePlans } from '../lib/normalize'
-import { money } from '../lib/format'
+import { normalizePacks, normalizePlans } from '../lib/normalize'
+import { money, number } from '../lib/format'
 
 const wa = 'https://wa.me/5541988491690?text=Ol%C3%A1%2C%20quero%20conhecer%20o%20Achilles%20Content.'
+
 const faqs = [
-  ['O que é um crédito?', 'Crédito é a unidade usada para gerar copies e imagens dentro do Achilles Content.'],
-  ['Os créditos acumulam?', 'Créditos do plano renovam a cada ciclo. Créditos avulsos não expiram.'],
-  ['Posso comprar créditos avulsos?', 'Sim. Os pacotes complementam o saldo e não alteram sua assinatura.'],
-  ['Posso trocar de plano?', 'Sim. Upgrades podem ser aplicados imediatamente. Downgrades entram no ciclo seguinte.'],
+  ['O que é um crédito?', 'Crédito é a unidade usada para gerar copies e imagens dentro do Achilles Content. Cada operação tem um custo fixo e transparente, exibido antes de você confirmar.'],
+  ['Quantos créditos ganho para testar?', `Toda conta nova recebe ${FREE_SIGNUP_CREDITS} créditos de cortesia. Dá para gerar uma copy completa e uma arte, sem cartão e sem compromisso.`],
+  ['Os créditos acumulam?', 'Os créditos do plano renovam a cada ciclo e o saldo anterior expira. Os créditos avulsos comprados em pacote não expiram nunca.'],
+  ['Como funciona o pagamento?', 'Você gera um QR Code PIX dentro da plataforma e paga pelo app do seu banco. A Achilles confere o pagamento e libera os créditos na sua conta.'],
+  ['Posso trocar de plano?', 'Sim. O upgrade vale a partir do pagamento confirmado. O downgrade entra no ciclo seguinte.'],
   ['Quem é o dono das artes?', 'As artes geradas para sua conta ficam disponíveis para uso da sua marca, respeitando os termos do serviço.'],
-  ['Qual o prazo de entrega?', 'A geração começa após a aprovação da copy. O andamento aparece em tempo real no estúdio.']
+  ['E se uma geração falhar?', 'O sistema estorna automaticamente os créditos das peças que não foram entregues. Você não paga por arte que não recebeu.']
 ]
 
 export default function Landing() {
   const [open, setOpen] = useState(0)
-  // Preco e creditos vem do banco para a pagina publica nunca divergir da cobranca.
-  // O texto de marketing (badge, suporte) continua curado em shared/pricing.js.
   const [plans, setPlans] = useState(DEFAULT_PLANS)
+  const [packs, setPacks] = useState(DEFAULT_PACKS)
+  const [pricing, setPricing] = useState(DEFAULT_PRICING)
+  const [presets, setPresets] = useState(DEFAULT_PRESETS)
 
+  // A landing le o catalogo publico. Reajuste de preco no banco aparece aqui
+  // sem precisar de deploy.
   useEffect(() => {
     if (DEMO_MODE) return
-    publicApi('list-plans')
-      .then(out => {
-        const live = new Map(normalizePlans(out.plans).map(p => [p.slug, p]))
-        setPlans(DEFAULT_PLANS.map(p => live.has(p.slug) ? { ...p, ...live.get(p.slug) } : p))
-      })
-      .catch(() => { /* a landing continua com os valores padrao */ })
+    fetch('/.netlify/functions/list-plans').then(r => r.json()).then(d => {
+      if (d.plans?.length) setPlans(normalizePlans(d.plans))
+      if (d.packs?.length) setPacks(normalizePacks(d.packs))
+    }).catch(() => {})
+    fetch('/.netlify/functions/list-pricing').then(r => r.json()).then(d => {
+      if (d.pricing && Object.keys(d.pricing).length) setPricing(d.pricing)
+      if (d.presets?.length) setPresets(d.presets)
+    }).catch(() => {})
   }, [])
+
   return <div className="landing">
-    <header className="public-nav"><Link to="/" className="logo"><span className="brand-mark">A</span><div><strong>ACHILLES</strong><small>CONTENT</small></div></Link><nav><a href="#como">Como funciona</a><a href="#planos">Planos</a><Link to="/entrar" className="nav-login">Entrar</Link></nav></header>
-    <section className="hero"><div><span className="eyebrow">CONTEÚDO COM IDENTIDADE</span><h1>CONTEÚDO DA SUA MARCA.<br/><em>SEM COMEÇAR DO ZERO.</em></h1><p>Defina sua identidade uma vez. Gere copies e artes alinhadas à sua marca sempre que precisar.</p><div className="hero-actions"><a href="#planos" className="btn primary">VER PLANOS<ArrowRight size={18}/></a><a href={wa} className="btn secondary">FALAR COM A EQUIPE</a></div></div><div className="hero-mock"><div className="mock-screen"><span>ACHILLES CONTENT</span><strong>Seu próximo conteúdo começa com uma ideia.</strong><div className="mock-field">Digite o tema da publicação</div><button>GERAR COPY</button></div></div></section>
-    <section className="proof"><div className="section-head"><span className="eyebrow">PROVA VISUAL</span><h2>UMA MARCA. MUITAS ENTREGAS.</h2></div><div className="proof-track">{Array.from({length:6}).map((_,i)=><div className="post-placeholder" key={i}><span>POST {String(i+1).padStart(2,'0')}</span><strong>ESPAÇO PARA POST REAL</strong><small>Substituir por print de entrega</small></div>)}</div></section>
-    <section className="steps" id="como"><div className="section-head"><span className="eyebrow">COMO FUNCIONA</span><h2>DO TEMA À ARTE.</h2></div><div className="step-grid">{[['01','Informe o tema','Diga o assunto e o objetivo da publicação.'],['02','Receba a copy','O sistema escreve seguindo seu Brand Brain.'],['03','Aprove','Revise, ajuste e aprove antes de gastar com imagem.'],['04','Receba as artes','A geração começa e o progresso aparece no painel.']].map(x=><article key={x[0]}><b>{x[0]}</b><h3>{x[1]}</h3><p>{x[2]}</p></article>)}</div></section>
-    <section className="deliveries"><div className="section-head"><span className="eyebrow">ENTREGAS</span><h2>ESCOLHA O FORMATO.</h2></div><div className="delivery-grid">{Object.values(FORMAT_PRICING).map(item=><article key={item.slug}><span>{item.label.toUpperCase()}</span><h3>{item.totalCredits} CRÉDITOS</h3><p>Copy: {item.copyCredits}. Imagens: {item.imageCount} {item.imageCount>1?'artes':'arte'} por {item.imageCreditsEach} créditos cada.</p></article>)}</div></section>
-    <section className="brand-section"><div><span className="eyebrow">BRAND BRAIN</span><h2>SUA IDENTIDADE ENTRA UMA VEZ. O SISTEMA USA SEMPRE.</h2><p>Tom, público, cores, regras visuais, diferenciais e guardrails ficam ligados à sua conta e orientam cada nova geração.</p></div><div className="brand-preview"><div><small>MARCA</small><strong>Clínica Aurora</strong></div><div><small>TOM</small><strong>Profissional, humano e direto</strong></div><div className="color-row"><i/><i/></div></div></section>
-    <section className="plans" id="planos"><div className="section-head"><span className="eyebrow">PLANOS</span><h2>CRÉDITOS PARA O SEU RITMO.</h2></div><div className="plan-grid">{plans.map(plan=><article key={plan.slug} className={plan.badge?'featured':''}>{plan.badge&&<span className="tag">{plan.badge}</span>}<h3>{plan.name}</h3><div className="price">{money(plan.priceCents)}<small>/mês</small></div><strong>{plan.monthlyCredits} créditos por ciclo</strong><ul><li>{plan.brands ? `${plan.brands} ${plan.brands===1?'marca':'marcas'}` : 'Marcas ilimitadas'}</li><li>Histórico: {plan.history}</li><li>Suporte: {plan.support}</li></ul><Link to="/entrar" className="btn primary">CONTRATAR</Link></article>)}</div></section>
-    <section className="faq"><div className="section-head"><span className="eyebrow">PERGUNTAS FREQUENTES</span><h2>O QUE PRECISA FICAR CLARO.</h2></div><div>{faqs.map(([q,a],i)=><button key={q} className="faq-item" onClick={()=>setOpen(open===i?-1:i)}><span><strong>{q}</strong><ChevronDown className={open===i?'rot':''}/></span>{open===i&&<p>{a}</p>}</button>)}</div></section>
-    <section className="final-cta"><span className="eyebrow">ACHILLES CONTENT</span><h2>PRONTO PARA COLOCAR SUA MARCA NO FLUXO?</h2><p>Fale com a equipe pelo WhatsApp 41 98849-1690.</p><div><a className="btn primary" href={wa}>FALAR NO WHATSAPP</a><a className="btn secondary" href="#planos">VER PLANOS</a></div></section>
+    <header className="public-nav"><Link to="/" className="logo"><span className="brand-mark">A</span><div><strong>ACHILLES</strong><small>CONTENT</small></div></Link><nav><a href="#como">Como funciona</a><a href="#creditos">Créditos</a><a href="#planos">Planos</a><Link to="/entrar" className="nav-login">Entrar</Link></nav></header>
+
+    <section className="hero">
+      <div>
+        <span className="eyebrow">CONTEÚDO COM IDENTIDADE</span>
+        <h1>CONTEÚDO DA SUA MARCA.<br/><em>SEM COMEÇAR DO ZERO.</em></h1>
+        <p>Defina sua identidade uma vez. Gere copies e artes alinhadas à sua marca sempre que precisar. Você aprova o texto antes de gastar crédito com imagem.</p>
+        <div className="hero-actions"><Link to="/entrar" className="btn primary">COMEÇAR COM {FREE_SIGNUP_CREDITS} CRÉDITOS<ArrowRight size={18}/></Link><a href={wa} className="btn secondary">FALAR COM A EQUIPE</a></div>
+        <small className="hero-note">Sem cartão. Sem cobrança automática. Você paga por PIX quando decidir continuar.</small>
+      </div>
+      <div className="hero-mock"><div className="mock-screen"><span>ACHILLES CONTENT</span><strong>Seu próximo conteúdo começa com uma ideia.</strong><div className="mock-field">Digite o tema da publicação</div><button>GERAR COPY</button></div></div>
+    </section>
+
+    <section className="steps" id="como">
+      <div className="section-head"><span className="eyebrow">COMO FUNCIONA</span><h2>DO TEMA À ARTE.</h2></div>
+      <div className="step-grid">{[
+        ['01','Informe o tema','Diga o assunto e o objetivo da publicação.'],
+        ['02','Receba a copy','O sistema escreve seguindo o seu Brand Brain.'],
+        ['03','Aprove','Revise, ajuste e aprove antes de gastar com imagem.'],
+        ['04','Receba as artes','A direção de arte é montada e o progresso aparece no painel.']
+      ].map(x=><article key={x[0]}><b>{x[0]}</b><h3>{x[1]}</h3><p>{x[2]}</p></article>)}</div>
+    </section>
+
+    <section className="deliveries" id="creditos">
+      <div className="section-head"><span className="eyebrow">TRANSPARÊNCIA</span><h2>VOCÊ SABE O QUE VAI GASTAR.</h2><p>Cada operação tem custo fixo em créditos, mostrado antes de confirmar.</p></div>
+      <div className="delivery-grid">{FORMATS.map(item=><article key={item.slug}>
+        <span>{item.label.toUpperCase()}</span>
+        <h3>{number(totalCredits(pricing,item.slug,'standard'))} CRÉDITOS</h3>
+        <p>Copy: {number(copyCredits(pricing,item.slug))} créditos. Artes: {item.imageCount} {item.imageCount>1?'peças':'peça'} a {number(imageCredits(pricing,'standard'))} créditos cada, na qualidade Padrão.</p>
+      </article>)}</div>
+      <div className="quality-compare">
+        <article><span className="eyebrow">IMAGEM PADRÃO</span><strong>{number(imageCredits(pricing,'standard'))} créditos</strong><p>Pronta para publicar. É a escolha do dia a dia.</p></article>
+        <article className="featured"><span className="eyebrow">IMAGEM ASSINATURA</span><strong>{number(imageCredits(pricing,'signature'))} créditos</strong><p>Máxima fidelidade e detalhe, com direção de arte guiada por referência. Para peças de campanha.</p></article>
+      </div>
+    </section>
+
+    <section className="brand-section">
+      <div>
+        <span className="eyebrow">BRAND BRAIN E DIREÇÃO DE ARTE</span>
+        <h2>SUA IDENTIDADE ENTRA UMA VEZ. O SISTEMA USA SEMPRE.</h2>
+        <p>Tom, público, cores, regras visuais, referências e guardrails ficam ligados à sua conta. Antes de cada arte, o sistema monta uma direção fechada de luz, paleta e composição, e mantém ela igual em todos os slides do carrossel.</p>
+      </div>
+      <div className="brand-preview">
+        <div><small>PRESETS DE DIREÇÃO</small><strong>{presets.length} estilos</strong></div>
+        {presets.slice(0,3).map(p=><div key={p.slug}><small>{p.name.toUpperCase()}</small><strong>{p.summary}</strong></div>)}
+        <div className="color-row"><i/><i/></div>
+      </div>
+    </section>
+
+    <section className="plans" id="planos">
+      <div className="section-head"><span className="eyebrow">PLANOS</span><h2>CRÉDITOS PARA O SEU RITMO.</h2></div>
+      <div className="plan-grid four">{plans.map(plan=><article key={plan.slug} className={plan.badge?'featured':''}>
+        {plan.badge&&<span className="tag">{plan.badge}</span>}
+        <h3>{plan.name}</h3>
+        <div className="price">{money(plan.priceCents)}<small>/mês</small></div>
+        <strong>{number(plan.monthlyCredits)} créditos por ciclo</strong>
+        <ul>
+          <li>{plan.brands ? `${plan.brands} ${plan.brands===1?'marca':'marcas'}` : 'Marcas ilimitadas'}</li>
+          <li>Histórico: {plan.history}</li>
+          <li>Suporte: {plan.support||'Prioritário'}</li>
+        </ul>
+        <Link to="/entrar" className="btn primary">CONTRATAR</Link>
+      </article>)}</div>
+      <div className="pack-strip">
+        <span className="eyebrow">SEM ASSINAR</span>
+        <p>Pacotes avulsos que não expiram: {packs.map(p=>`${number(p.credits)} por ${money(p.priceCents)}`).join(' · ')}.</p>
+      </div>
+    </section>
+
+    <section className="faq">
+      <div className="section-head"><span className="eyebrow">PERGUNTAS FREQUENTES</span><h2>O QUE PRECISA FICAR CLARO.</h2></div>
+      <div>{faqs.map(([q,a],i)=><button key={q} className="faq-item" onClick={()=>setOpen(open===i?-1:i)}><span><strong>{q}</strong><ChevronDown className={open===i?'rot':''}/></span>{open===i&&<p>{a}</p>}</button>)}</div>
+    </section>
+
+    <section className="final-cta">
+      <span className="eyebrow">ACHILLES CONTENT</span>
+      <h2>PRONTO PARA COLOCAR SUA MARCA NO FLUXO?</h2>
+      <p>Comece com {FREE_SIGNUP_CREDITS} créditos de cortesia ou fale com a equipe pelo WhatsApp 41 98849-1690.</p>
+      <div><Link className="btn primary" to="/entrar">CRIAR MINHA CONTA</Link><a className="btn secondary" href={wa}>FALAR NO WHATSAPP</a></div>
+    </section>
+
     <footer><div className="logo"><span className="brand-mark">A</span><div><strong>ACHILLES</strong><small>CONTENT</small></div></div><span>41 98849-1690</span><div><Link to="/privacidade">Privacidade</Link><Link to="/termos">Termos de uso</Link></div></footer>
   </div>
 }

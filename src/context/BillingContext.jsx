@@ -1,56 +1,46 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { DEMO_MODE } from '../lib/config'
 import { api } from '../lib/api'
-import { DEFAULT_PACKS, DEFAULT_PLANS } from '../../shared/pricing'
+import { DEFAULT_PACKS, DEFAULT_PLANS, DEFAULT_PRESETS, DEFAULT_PRICING } from '../../shared/pricing'
 import { normalizePacks, normalizePlans, normalizeSubscription } from '../lib/normalize'
 import { useAuth } from './AuthContext'
 
 const BillingContext = createContext(null)
 
 const demoState = {
-  subscription: {
-    status: 'active',
-    renewalMode: 'payment',
-    currentPeriodEnd: new Date(Date.now() + 26 * 86400000).toISOString(),
-    plan: DEFAULT_PLANS[1],
-    nextPlan: null
-  },
-  plans: DEFAULT_PLANS,
-  packs: DEFAULT_PACKS,
-  recent: [],
-  pending: []
+  subscription: { plan: DEFAULT_PLANS[1], currentPeriodEnd: new Date(Date.now() + 26 * 86400000).toISOString(), status: 'active' },
+  plans: DEFAULT_PLANS, packs: DEFAULT_PACKS, recent: [], pending: [],
+  pricing: DEFAULT_PRICING, presets: DEFAULT_PRESETS
 }
 
-const emptyState = { subscription: null, plans: [], packs: [], recent: [], pending: [] }
-
 export function BillingProvider({ children }) {
-  const { user, profile, patchProfile, refreshProfile } = useAuth()
-  const [billing, setBilling] = useState(DEMO_MODE ? demoState : emptyState)
+  const { user, profile, patchProfile } = useAuth()
+  const [billing, setBilling] = useState(DEMO_MODE ? demoState : {
+    plans: [], packs: [], recent: [], pending: [],
+    // Ate a API responder, a UI usa o espelho local. Assim o estudio nunca
+    // mostra "0 créditos" para uma operacao que na verdade custa 100.
+    pricing: DEFAULT_PRICING, presets: DEFAULT_PRESETS
+  })
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
 
-  const refresh = useCallback(async () => {
+  async function refresh() {
     if (!user || DEMO_MODE) return
     setLoading(true)
-    setError('')
     try {
-      // O saldo vive em profiles. Recarrega junto para o cabecalho nao ficar defasado.
-      const [data] = await Promise.all([api('get-billing'), refreshProfile()])
+      const data = await api('get-billing')
       setBilling({
         subscription: normalizeSubscription(data.subscription),
         plans: normalizePlans(data.plans),
         packs: normalizePacks(data.packs),
         recent: data.recent || [],
-        pending: data.pending || []
+        pending: data.pending || [],
+        pricing: data.pricing && Object.keys(data.pricing).length ? data.pricing : DEFAULT_PRICING,
+        presets: data.presets?.length ? data.presets : DEFAULT_PRESETS
       })
-    } catch (e) {
-      setError(e.message)
-    } finally {
-      setLoading(false)
-    }
-  }, [user?.id, refreshProfile])
+    } finally { setLoading(false) }
+  }
 
-  useEffect(() => { refresh() }, [refresh])
+  useEffect(() => { refresh() }, [user?.id])
 
   function demoSpend(amount) {
     if (!DEMO_MODE) return
@@ -62,10 +52,7 @@ export function BillingProvider({ children }) {
     patchProfile({ credits_plan: plan, credits_extra: Math.max(0, extra), credits: plan + Math.max(0, extra) })
   }
 
-  const value = useMemo(
-    () => ({ ...billing, loading, error, refresh, demoSpend }),
-    [billing, loading, error, refresh, profile]
-  )
+  const value = useMemo(() => ({ ...billing, loading, refresh, demoSpend }), [billing, loading, profile])
   return <BillingContext.Provider value={value}>{children}</BillingContext.Provider>
 }
 

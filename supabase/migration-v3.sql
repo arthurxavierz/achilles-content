@@ -1,10 +1,3 @@
--- ============================================================
--- LEGADO. Nao use mais este arquivo.
--- O schema completo e idempotente agora vive em supabase/schema.sql,
--- que cobre projeto novo e atualizacao de base V3.
--- Mantido apenas como referencia historica da migracao V3 -> V4.
--- ============================================================
-
 -- Achilles Content V4. Migração incremental sobre o schema existente.
 create extension if not exists pgcrypto;
 

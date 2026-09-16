@@ -1,159 +1,153 @@
-# Achilles Content V4 — Guia de publicação
+# Referência técnica
 
-## 1. Pré-requisitos
+Complemento do [README.md](README.md). Aqui está como cada peça funciona por dentro, o que pode dar errado e onde olhar.
 
-Node.js 20 LTS ou superior e npm 10 ou superior. Para rodar as Netlify Functions localmente, instale a CLI com `npm install -g netlify-cli`.
+---
 
-## 2. Teste visual imediato
+## Arquitetura
 
-```bash
-npm install
-npm run dev
+```
+Cloudflare (DNS)
+  └─ Netlify
+       ├─ dist/            SPA React (Vite)
+       └─ functions/       Netlify Functions (Node 20)
+            ├─ chamadas do cliente e do admin
+            ├─ generate-images-background   Background Function, até 15 min
+            └─ cron-*                       Scheduled Functions
+                 └─ Supabase (Postgres + Auth + Storage privado)
+                      └─ OpenAI (uma chave só, custo consolidado)
 ```
 
-`npm run dev` usa o modo `demo` (arquivo `.env.demo`) e serve para validar telas sem nenhuma chave externa. Abra `http://localhost:5173`.
+O frontend **nunca** fala com a OpenAI e nunca escreve crédito. Toda escrita de saldo passa por funções `security definer` no Postgres, com permissão de execução apenas para a `service_role`.
 
-Para testar frontend e Functions juntos, configure as variáveis reais e rode `npm run dev:real`.
+---
 
-## 3. Supabase
+## O fluxo de uma geração
 
-1. Crie um projeto no Supabase.
-2. Abra o SQL Editor.
-3. Cole e execute **`supabase/schema.sql` inteiro**.
+1. **`generate-copy`** — debita os créditos da copy, chama o modelo de texto com o Brand Brain no prompt, grava `copy_json` e registra o custo real em `generations.cost_usd`.
+2. **`approve-copy`** — o cliente revisa e aprova. Nada é cobrado aqui. Só depois da aprovação as imagens ficam liberadas: é o que evita o cliente pagar por arte de uma copy que ele ia descartar.
+3. **`generate-images`** — debita todas as imagens de uma vez, cria o job e despacha para a Background Function.
+4. **`generate-images-background`** — o trabalho pesado, em dois estágios:
+   - **Direção de arte:** o modelo de texto lê marca, preset e copy e devolve um JSON fechado (paleta, luz, textura, composição, clima, e uma cena por slide). É calculado uma vez por geração e reaproveitado em retentativas.
+   - **Imagens:** cada peça é montada com o bloco fixo do preset + a direção + a cena. Da segunda imagem em diante, a primeira vai anexada como referência via `/images/edits`, o que segura a identidade visual do carrossel.
+5. **`sign-generation-urls`** — o bucket é privado. As artes só saem por URL assinada, válida por uma hora.
 
-Esse arquivo é completo e idempotente: funciona tanto em um projeto novo quanto sobre uma base V3 existente, e pode ser reexecutado sem quebrar nada. Ele cria as tabelas, as funções de crédito, o RLS, o bucket privado `generation-assets` e o trigger de novos usuários.
+### Se falhar no meio
 
-> `supabase/migration-v3.sql` ficou apenas como referência histórica. Não é mais necessário.
+O estorno é proporcional. `refundUnproducedImages` devolve só os créditos das peças que **não** chegaram ao cliente — imagem entregue já custou dinheiro na OpenAI e não volta para o saldo. Se ao menos uma peça saiu, a geração fica como `images_ready` e o cliente mantém o que recebeu.
 
-### Promover o primeiro administrador
+`cron-maintenance` roda a cada 20 minutos e recolhe job travado: reenfileira até três tentativas, depois marca como falho e estorna.
 
-Crie o usuário pelo Supabase Auth (Authentication → Users → Add user) e depois execute:
+---
 
-```sql
-update public.profiles set role = 'admin' where email = 'seu-email@empresa.com.br';
-```
+## Créditos
 
-## 4. Variáveis de ambiente
+Dois saldos separados em `profiles`:
 
-| Nome | Onde | Tipo | Observação |
-| --- | --- | --- | --- |
-| VITE_SUPABASE_URL | Netlify e local | Pública | |
-| VITE_SUPABASE_PUBLISHABLE_KEY | Netlify e local | Pública | |
-| VITE_APP_URL | Netlify e local | Pública | |
-| VITE_DEMO_MODE | Apenas teste | Pública | `false` em produção |
-| SUPABASE_URL | Functions | Operacional | |
-| SUPABASE_PUBLISHABLE_KEY | Functions | Operacional | |
-| SUPABASE_SECRET_KEY | Functions | **Secreta** | service role |
-| OPENAI_API_KEY | Functions | **Secreta** | |
-| OPENAI_TEXT_MODEL | Functions | Configuração | modelo habilitado na sua conta |
-| OPENAI_IMAGE_MODEL | Functions | Configuração | modelo de imagem habilitado |
-| MP_ACCESS_TOKEN | Functions | **Secreta** | |
-| MP_WEBHOOK_SECRET | Functions | **Secreta** | |
-| APP_URL | Functions | Configuração | usada no checkout, no webhook e no despacho interno |
-| INTERNAL_JOB_SECRET | Functions | **Secreta** | string longa e aleatória |
+- **`credits_plan`** — vem do plano. Expira no fim do ciclo, não acumula. `set_plan_credits` zera o que sobrou e escreve o valor novo, registrando a expiração no extrato.
+- **`credits_extra`** — pacotes avulsos e concessões manuais. Nunca expira.
 
-Nunca prefixe um segredo com `VITE_`. Tudo que começa com `VITE_` vai para o bundle público.
+`spend_credits` consome **primeiro o saldo do plano**, depois o avulso. É o que faz sentido: o saldo que expira é gasto antes do que não expira.
 
-Gere o `INTERNAL_JOB_SECRET` com:
+Tudo passa pelo `credit_ledger`, com saldo depois de cada movimento. O extrato do cliente e o CSV saem daí.
 
-```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
-```
+### Travas contra gasto descontrolado
 
-## 5. OpenAI
+Três camadas, e você quer as três:
 
-A copy é gerada no servidor com resposta estruturada em JSON. Os créditos são debitados antes da chamada e estornados em caso de falha. A geração de imagens cria um job e despacha o processamento para uma Background Function, então a requisição do cliente retorna rápido com status 202.
+1. `spend_credits` — sem saldo, sem chamada. É a regra de negócio.
+2. `MONTHLY_API_CEILING_USD` — teto de gasto do mês somando `generations.cost_usd`. Ao atingir, o sistema para de gerar mesmo com crédito disponível. Protege contra bug de loop.
+3. Limite de uso na conta OpenAI — fora do sistema, então funciona mesmo se o sistema for a origem do problema.
 
-Se a geração de imagens falhar no meio, **apenas as imagens não produzidas são estornadas**, e o cliente pode retomar pelo botão "Tentar novamente" — a retomada cobra somente o que ainda falta.
+Além disso, `check_rate_limit` limita chamadas por minuto por usuário e operação.
 
-## 6. Mercado Pago e o modelo de renovação
+---
 
-1. Abra a aplicação no painel de desenvolvedores do Mercado Pago.
-2. Configure `MP_ACCESS_TOKEN` no Netlify.
-3. Cadastre o webhook em `https://SEU-DOMINIO/.netlify/functions/mp-webhook`.
-4. Copie o segredo de assinatura para `MP_WEBHOOK_SECRET`.
-5. Teste primeiro com credenciais de teste.
+## Cálculo de margem
 
-O webhook valida a assinatura HMAC, reconsulta o pagamento na API, confere o valor e só então libera crédito. A coluna `mp_payment_id` é única e a saída de `pending` é condicional, então a mesma notificação nunca credita duas vezes.
+`generations.cost_usd` acumula o custo real de cada chamada, somado atomicamente por `add_generation_cost`. O custo vem do `usage` que a OpenAI devolve, convertido pelas variáveis `OPENAI_*_USD_PER_M`. Quando a resposta não traz `usage`, cai numa tabela de tokens por tamanho e qualidade.
 
-### Como cada ciclo é renovado
+`admin-metrics` cruza isso com os pagamentos aprovados do mês e devolve a margem. As views `admin_margin_month` e `admin_margin_client` servem para consulta direta no SQL Editor quando você quiser investigar.
 
-A coluna `subscriptions.renewal_mode` define quem responde pelo próximo ciclo:
+> Os números de preço da OpenAI nas variáveis de ambiente são uma referência, não um contrato. Se a OpenAI reajustar, a margem do painel fica errada até você atualizar. Confira de tempos em tempos.
 
-| Modo | Comportamento |
-| --- | --- |
-| `payment` | Autoatendimento. **Cada ciclo exige um pagamento aprovado novo.** Vencido sem pagamento, os créditos do plano expiram e a assinatura vai para `past_due`. |
-| `manual` | Cliente comercial. O admin cobra fora da plataforma e o cron renova automaticamente. É o padrão para clientes criados pelo painel. |
-| `preapproval` | Reservado para assinatura recorrente do Mercado Pago (ainda não implementada). |
+---
 
-Créditos avulsos **nunca expiram** e nunca são tocados pela virada de ciclo. Apenas o saldo do plano é substituído.
+## Pagamentos
 
-O modo pode ser trocado por cliente na aba **PLANO** do painel administrativo.
+### PIX manual, o caminho padrão
 
-## 7. GitHub e Netlify
+`create-pix-charge` monta um BR Code estático (padrão EMV do Banco Central) apontando direto para a `PIX_KEY`, gera o QR como data URL e cria um `payment` pendente com validade de 24h. Uma cobrança aberta por item: reabrir a tela não gera um segundo QR.
 
-1. Crie o repositório no GitHub e faça o push (o `.gitignore` já exclui `node_modules`, `dist` e arquivos `.env`).
-2. No Netlify, importe o repositório.
-3. Build command: `npm run build` · Publish: `dist` · Functions: `netlify/functions`.
-4. Cadastre todas as variáveis de ambiente da seção 4.
-5. Faça o deploy.
+Não há gateway e não há confirmação automática. Você confere o extrato e dá baixa em `/admin`. O `txid` no QR é o id do pagamento sem hifens — é por ele que você casa o extrato com a linha da tabela.
 
-O build de produção é bloqueado se `VITE_SUPABASE_URL` ou `VITE_SUPABASE_PUBLISHABLE_KEY` estiverem ausentes.
+`admin-resolve-payment` marca a linha como aprovada **antes** de conceder, com `.eq('status','pending')`. Se dois admins clicarem ao mesmo tempo, só um encontra a linha pendente e o crédito não é concedido em dobro.
 
-### Tarefas agendadas
+### Mercado Pago, opcional
 
-O `netlify.toml` já registra duas:
+Continua funcionando em paralelo se você preencher `MP_ACCESS_TOKEN` e `MP_WEBHOOK_SECRET`. Sem essas variáveis, `create-checkout` responde com uma mensagem clara mandando usar o PIX. O webhook valida assinatura HMAC e confere se o valor pago bate com o valor cobrado antes de creditar.
 
-- `cron-renew-subscriptions` (08:00 UTC) — fecha os ciclos vencidos.
-- `cron-maintenance` (04:25 UTC) — limpa `rate_limits` e `webhook_events` antigos e reenfileira jobs de imagem que ficaram travados.
+Os dois caminhos terminam em `applyApprovedPayment`, então não divergem.
 
-## 8. Cloudflare e domínio
+---
 
-No Netlify, adicione `achilles-content.achillesmedia.com.br` como domínio personalizado. No Cloudflare, crie o CNAME indicado. Durante a emissão do certificado, mantenha o registro como **DNS only**. Depois que o HTTPS estiver estável, se ativar o proxy, use SSL/TLS em modo **Full (strict)**.
+## Direção de arte
 
-O `netlify.toml` já envia HSTS, CSP, `X-Frame-Options` e `Permissions-Policy`. Se adicionar um domínio ou serviço externo, lembre de liberar na CSP.
+Presets vivem em `art_presets`. Cada um é um bloco de prompt fixo e específico — lente, luz, textura, profundidade de campo — e a marca entra como variável por cima. É o que separa "imagem de IA" de peça com assinatura: adjetivo solto no prompt produz resultado genérico; especificação fotográfica concreta, não.
 
-## 9. Primeiro cliente
+Para adicionar um preset, insira em `art_presets` — ele aparece no estúdio e no Brand Brain sem deploy.
 
-1. Entre como administrador e acesse Administração.
-2. Clique em Novo cliente, informe nome, e-mail, senha (mínimo 10 caracteres), plano e créditos extras.
-3. Copie as credenciais ou abra o WhatsApp com a mensagem pronta.
+Regra que atravessa todos os prompts: **nenhum texto dentro da imagem**. A arte é fundo; a tipografia entra depois, em outra camada. Modelo de imagem renderizando texto é a forma mais rápida de um post parecer amador.
 
-O cliente entra sem confirmar e-mail (`email_confirm: true`), já recebe os créditos do plano e nasce com `renewal_mode = manual`. Se ele pagar pelo checkout, o webhook muda para `payment`.
+---
 
-## 10. Checklist antes de produção
+## Segurança
 
-- [ ] `supabase/schema.sql` executado sem erro.
-- [ ] Build de produção passa com as variáveis reais.
-- [ ] Primeiro administrador com `role = admin`.
-- [ ] Login, logout e recuperação de senha funcionam.
-- [ ] Criação de cliente funciona e as credenciais chegam ao cliente.
-- [ ] Brand Brain persiste após recarregar em outro navegador.
-- [ ] Copy debita o valor correto e a aprovação é obrigatória antes da imagem.
-- [ ] Carrossel retorna 202 e o progresso avança no estúdio.
-- [ ] **As artes aparecem na tela** no estúdio e no histórico, não só no download.
-- [ ] Download individual e ZIP funcionam.
-- [ ] Falha em imagem estorna apenas o que não foi produzido e o botão de retomar cobra só o restante.
-- [ ] Preços e créditos dos planos aparecem corretos na tela de Planos (não zerados).
-- [ ] Webhook do Mercado Pago testado duas vezes com a mesma notificação, sem crédito duplicado.
-- [ ] Um cliente `payment` com ciclo vencido vai para `past_due` e os avulsos permanecem.
-- [ ] RLS validada com um usuário cliente comum.
-- [ ] Nenhum segredo aparece no bundle (`grep -r "sk-\|service_role" dist/`).
+- **RLS ligada em tudo.** O cliente lê apenas as próprias linhas. `admin_audit_log`, `webhook_events` e `rate_limits` ficam com RLS ligada e nenhuma policy: só a `service_role` enxerga.
+- **Storage privado.** As artes só saem por URL assinada de uma hora.
+- **A Background Function exige `x-job-secret`.** Sem o `INTERNAL_JOB_SECRET` correto ela devolve 403 — senão qualquer um dispararia geração paga.
+- **CSP restritiva** no `netlify.toml`. `img-src` precisa de `data:` por causa do QR do PIX; `connect-src` precisa do Supabase.
+- **Toda ação de admin vai para `admin_audit_log`**, com quem fez, em quem e o quê.
 
-## 11. Solução de problemas
+---
 
-**Function retorna 502.** Veja os logs no Netlify. Confirme as variáveis secretas e se o `schema.sql` rodou. O frontend recebe mensagem genérica; o detalhe fica só no log.
+## Variáveis de ambiente
 
-**Carrossel não termina.** Abra `generation_jobs` e confira `status`, `done_count`, `attempts` e `last_error`. Confirme `APP_URL` e `INTERNAL_JOB_SECRET`. O `cron-maintenance` reenfileira jobs parados há mais de 15 minutos e desiste após 3 tentativas, estornando o que não foi produzido.
+Estão documentadas uma a uma em `.env.example`. As que costumam causar problema:
 
-**Webhook não chega.** Confira a URL cadastrada, o `MP_WEBHOOK_SECRET` e os logs de `mp-webhook`. Toda notificação recebida é registrada em `webhook_events` antes do processamento.
+| Variável | Armadilha |
+|---|---|
+| `APP_URL` | Se apontar para a `.netlify.app` em vez do domínio final, a Background Function não é chamada e a geração fica travada em "processando". |
+| `INTERNAL_JOB_SECRET` | Se estiver vazio dos dois lados, a comparação passa e qualquer um pode disparar job. Sempre preencha. |
+| `VITE_*` | São lidas no **build**, não em runtime. Mudou o valor, precisa de redeploy. |
+| `SUPABASE_SECRET_KEY` | Se vazar, o banco inteiro vazou. Só no Netlify. |
 
-**Imagem antiga não aparece.** O banco guarda `storage_path`, nunca a URL assinada. `sign-generation-urls` gera uma nova com validade de uma hora a cada consulta.
+---
 
-**Erro de RLS.** Confirme que o schema rodou por completo. Leituras do cliente usam filtro explícito por `user_id` além da RLS; escritas passam pelas Functions com a chave de serviço.
+## Problemas comuns
 
-## 12. Limites desta versão
+**Geração trava em "processando".** Quase sempre `APP_URL` errada ou `INTERNAL_JOB_SECRET` diferente entre as duas pontas. Olhe os logs da `generate-images-background` no Netlify. O `cron-maintenance` recolhe em até 20 minutos, mas isso é rede de proteção, não solução.
 
-A composição determinística final — aplicar tipografia Anton, logo e layout fixo sobre o fundo gerado — **ainda não foi implementada**. O fluxo instrui a IA a gerar fundos sem texto, e é isso que o cliente recebe hoje. Essa camada deve ser um serviço separado (por exemplo satori + resvg em uma Function), encaixado depois de `generate-images-background`.
+**Carrossel demora demais / dá timeout.** Confirme que a função está rodando como Background Function. Cinco imagens em qualidade Assinatura passam fácil dos 10 segundos de uma função comum.
 
-A assinatura recorrente do Mercado Pago (Preapproval) também não está implementada. Enquanto isso, o modelo `payment` exige um pagamento novo por ciclo e o modelo `manual` cobre os clientes faturados fora da plataforma.
+**"Tabela de preços indisponível".** A `migration-v5.sql` não rodou, ou rodou parcialmente. Cheque se `public.pricing` tem as seis linhas.
+
+**Planos aparecem com valores errados na landing.** São os valores de fallback de `shared/pricing.js`. Significa que `list-plans` ou `list-pricing` falhou — olhe o console do navegador e os logs das funções.
+
+**Cliente diz que pagou e o crédito não entrou.** É esperado: a baixa é manual. Confira o extrato e confirme em `/admin`.
+
+**Margem negativa ou muito baixa.** Abra a aba de histórico do cliente e olhe o custo em dólar por geração. Cliente que só gera story em qualidade Assinatura é o pior caso da tabela de preços.
+
+---
+
+## Arquivos que importam
+
+| Caminho | Papel |
+|---|---|
+| `supabase/schema.sql` | estrutura completa, idempotente |
+| `supabase/migration-v5.sql` | preços, presets, custo real, PIX, cortesia de 200 |
+| `netlify/functions/_shared.js` | catálogo, custo, despacho e estorno |
+| `netlify/functions/_billing.js` | aplicação de pagamento aprovado |
+| `netlify/functions/_pix.js` | gerador de BR Code |
+| `shared/pricing.js` | espelho do catálogo para o frontend e o modo demo |
+| `netlify.toml` | build, crons, redirects, headers |
