@@ -6,30 +6,45 @@ import { imageCostUsd,imageSize,loadCatalog,refundUnproducedImages,service,textC
 const directionSchema={type:'object',additionalProperties:false,properties:{
   palette:{type:'array',maxItems:4,items:{type:'string'}},
   lighting:{type:'string'},texture:{type:'string'},composition:{type:'string'},mood:{type:'string'},
+  // Elementos que se repetem em todas as pecas: mascote, motivos graficos,
+  // tipo de interface. E o que faz o feed parecer de uma marca so.
+  recurring_elements:{type:'array',maxItems:6,items:{type:'string'}},
   scenes:{type:'array',maxItems:10,items:{type:'object',additionalProperties:false,properties:{subject:{type:'string'},detail:{type:'string'}},required:['subject','detail']}}
-},required:['palette','lighting','texture','composition','mood','scenes']}
+},required:['palette','lighting','texture','composition','mood','recurring_elements','scenes']}
 
 async function buildDirection(svc,g,brand,preset){
   const slides=(g.copy_json?.slides||[]).map((s,i)=>`Slide ${i+1}: ${s.title} | ${s.subtitle||''}`).join('\n')||g.theme
-  const prompt=`Você é diretor de arte. Defina a direção visual de uma sequência de peças para rede social.
+  const prompt=`Você é diretor de arte de uma marca que já tem identidade visual definida. Seu trabalho não é inventar um estilo: é aplicar o estilo que já existe a um conteúdo novo.
 
-MARCA
+IDENTIDADE DA MARCA. Isto é lei e prevalece sobre o preset.
 Nome: ${brand?.brand_name||'não informado'}
 Segmento: ${brand?.segment||'não informado'}
 Cor principal: ${brand?.primary_color||'#D8AF58'} | Cor secundária: ${brand?.secondary_color||'#111111'}
-Regras visuais da marca: ${brand?.visual_rules||'editorial, alto contraste, muito espaço limpo'}
-Referências citadas pelo cliente: ${brand?.references_text||'nenhuma'}
 
-PRESET ESCOLHIDO
+Referência visual declarada pelo cliente:
+${brand?.references_text||'nenhuma referência declarada'}
+
+Regras visuais da marca:
+${brand?.visual_rules||'alto contraste, muito espaço limpo'}
+
+Elementos que a marca repete em toda peça:
+${brand?.recurring_elements||'nenhum declarado'}
+
+PRESET DE APOIO. Use só no que não conflitar com a identidade acima.
 ${preset?.name||'Editorial'} — ${preset?.summary||''}
 
 CONTEÚDO
 ${slides}
 
-Devolva uma direção única e coerente para todas as peças, e uma cena por slide (${(g.copy_json?.slides||[{}]).length} no total).
-Cada cena descreve um assunto visual concreto e fotografável, nunca um conceito abstrato.
-Nenhuma cena contém texto, letras, números, logotipos ou interface.
-As cenas variam de enquadramento entre si, mas mantêm a mesma paleta, luz e textura.`
+Devolva uma direção única para todas as peças e uma cena por slide (${(g.copy_json?.slides||[{}]).length} no total).
+
+Como decidir:
+A paleta sai da identidade da marca, não do preset. Se a marca descreve um fundo dourado, a paleta é dourada.
+Em recurring_elements repita o que a marca declarou acima como recorrente. Se ela não declarou nada, extraia da referência visual o que aparece em toda peça: mascote, motivos gráficos, tipo de interface, texturas de fundo. Não havendo nada, devolva lista vazia.
+Cada cena descreve um assunto visual concreto e construível, nunca um conceito abstrato.
+Elementos de interface, HUD, gráficos, circuitos e dashboards são permitidos quando a marca os usa, desde que sem nenhum texto legível.
+As cenas variam de enquadramento entre si, mas mantêm a mesma paleta, luz, textura e elementos recorrentes.
+Adapte o assunto ao nicho tratado no slide, sem trocar o estilo da marca.`
 
   const res=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{authorization:`Bearer ${process.env.OPENAI_API_KEY}`,'content-type':'application/json'},body:JSON.stringify({model:process.env.OPENAI_TEXT_MODEL,input:prompt,text:{format:{type:'json_schema',name:'art_direction',strict:true,schema:directionSchema}}})})
   if(!res.ok)throw new Error(`Direção de arte falhou: OpenAI ${res.status}`)
@@ -41,28 +56,45 @@ As cenas variam de enquadramento entre si, mas mantêm a mesma paleta, luz e tex
   return direction
 }
 
-// Estagio 2. O prompt final e montado com blocos fixos. O preset entra
-// literal; a marca e a direcao entram como variaveis.
+// Estagio 2. A ordem aqui importa mais que o conteudo: o modelo de imagem
+// pesa mais o inicio do prompt. Por isso a marca vem antes do preset, e nao
+// depois. Invertido, o preset sequestra a peca e o resultado sai generico.
 function buildImagePrompt({g,brand,preset,direction,index}){
   const scene=direction.scenes?.[index]||direction.scenes?.[0]||{}
   const slide=g.copy_json?.slides?.[index]||g.copy_json?.slides?.[0]||{}
-  return `${preset?.prompt_block||''}
+  // O que a marca declarou vence o que o modelo inferiu.
+  const declared=String(brand?.recurring_elements||'').trim()
+  const recurring=declared?[declared]:(direction.recurring_elements||[]).filter(Boolean)
+
+  const identidade=[
+    brand?.references_text&&`Referência visual da marca, siga fielmente:\n${brand.references_text}`,
+    brand?.visual_rules&&`Regras visuais obrigatórias:\n${brand.visual_rules}`,
+    `Paleta obrigatória: ${(direction.palette||[]).join(', ')||`${brand?.primary_color||'#D8AF58'} e ${brand?.secondary_color||'#111111'}`}.`
+  ].filter(Boolean).join('\n\n')
+
+  return `IDENTIDADE VISUAL DA MARCA
+Esta seção define a aparência da peça e prevalece sobre qualquer outra instrução abaixo.
+
+${identidade}
 
 CENA
 ${scene.subject||slide.title||g.theme}. ${scene.detail||''}
+${recurring.length?`\nELEMENTOS QUE APARECEM EM TODA PEÇA DESTA MARCA\n${recurring.join('. ')}.`:''}
 
-DIREÇÃO FECHADA
-Paleta: ${(direction.palette||[]).join(', ')||`${brand?.primary_color||'#D8AF58'} e ${brand?.secondary_color||'#111111'}`}.
-Luz: ${direction.lighting||'natural difusa'}.
-Textura: ${direction.texture||'sutil, sem ruído artificial'}.
-Composição: ${direction.composition||'assimétrica com amplo espaço negativo'}.
-Clima: ${direction.mood||'sóbrio e confiante'}.
+ACABAMENTO
+Luz: ${direction.lighting||'cinematográfica, com volume e profundidade'}.
+Textura: ${direction.texture||'limpa, sem ruído artificial'}.
+Composição: ${direction.composition||'assimétrica, com amplo espaço livre'}.
+Clima: ${direction.mood||'confiante e profissional'}.
 
-REGRAS INEGOCIÁVEIS
-Não renderize nenhum texto, letra, número, palavra, logotipo, marca d'água ou elemento de interface.
-Reserve uma área ampla, limpa e de contraste uniforme para a tipografia ser aplicada depois, em outra camada.
-Imagem fotográfica ou tridimensional real, nunca ilustração de banco de imagens, nunca colagem, nunca moldura.
-${brand?.visual_rules?`Regras da marca: ${brand.visual_rules}`:''}`
+ESTILO BASE, aplicar somente no que não conflitar com a identidade da marca
+${preset?.prompt_block||''}
+
+PROIBIÇÕES
+Não renderize texto, letra, número, palavra, legenda, logotipo ou marca d'água. Nenhum caractere legível em lugar nenhum da imagem.
+Elementos de interface, HUD, painéis, gráficos e circuitos são permitidos e desejáveis quando a identidade da marca os usa, desde que fiquem sem nenhum texto legível: use formas, barras, ícones e linhas no lugar de rótulos.
+Reserve uma área ampla e de contraste uniforme para a tipografia ser aplicada depois, em outra camada.
+Nada de colagem, moldura, borda decorativa ou estética genérica de banco de imagens.`
 }
 
 // Slides 2 em diante usam o primeiro como referencia. E o que segura a

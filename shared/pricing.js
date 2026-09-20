@@ -17,7 +17,9 @@ export const DEFAULT_PRESETS = Object.freeze([
   { slug:'luxo', name:'Luxo Quente', summary:'Superfícies nobres, dourado, sensação de alto padrão.' },
   { slug:'dark_tech', name:'Dark Tech', summary:'Escuro, geométrico, tecnológico e limpo.' },
   { slug:'natural', name:'Luz Natural', summary:'Real, humano, sem parecer banco de imagens.' },
-  { slug:'vitrine', name:'Vitrine 3D', summary:'Objeto em destaque, fundo limpo, feito para converter.' }
+  { slug:'vitrine', name:'Vitrine 3D', summary:'Objeto em destaque, fundo limpo, feito para converter.' },
+  { slug:'gold_tech', name:'Dourado Tech', summary:'Render 3D em fundo dourado, HUD e glow. Feito para marca de tecnologia.' },
+  { slug:'grafite_tech', name:'Grafite Tech', summary:'A mesma linguagem do Dourado Tech, em fundo escuro.' }
 ])
 
 export const FORMATS = Object.freeze([

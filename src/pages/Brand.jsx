@@ -7,7 +7,7 @@ import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { useBilling } from '../context/BillingContext'
 
-const empty = { brand_name:'', segment:'', audience:'', tone:'Profissional, direto e humano.', primary_color:'#D8AF58', secondary_color:'#111111', typography:'Anton para títulos e Inter para textos', briefing:'', guardrails:'', visual_rules:'', differentiators:'', services:'', default_cta:'', instagram_handle:'', references_text:'', forbidden_terms:'', preset_slug:'editorial' }
+const empty = { brand_name:'', segment:'', audience:'', tone:'Profissional, direto e humano.', primary_color:'#D8AF58', secondary_color:'#111111', typography:'Anton para títulos e Inter para textos', briefing:'', guardrails:'', visual_rules:'', differentiators:'', services:'', default_cta:'', instagram_handle:'', references_text:'', forbidden_terms:'', preset_slug:'editorial', recurring_elements:'' }
 
 // So estes campos vao para a API. Evita mandar id, user_id e timestamps de volta.
 const FIELDS = Object.keys(empty)
@@ -68,6 +68,7 @@ export default function Brand() {
         <div className="form-grid">
           <label className="wide">Regras visuais<textarea rows="4" value={brand.visual_rules} onChange={e=>set('visual_rules',e.target.value)} placeholder="Fundo escuro, dourado como destaque, composição editorial, muito respiro."/></label>
           <label className="wide">Referências visuais<textarea rows="4" value={brand.references_text} onChange={e=>set('references_text',e.target.value)} placeholder="Descreva ou cole links de perfis e campanhas que representam o padrão que você quer."/></label>
+          <label className="wide">Elementos recorrentes<textarea rows="3" value={brand.recurring_elements} onChange={e=>set('recurring_elements',e.target.value)} placeholder="O que aparece em toda peça: mascote, tipo de interface, motivos gráficos, textura de fundo."/></label>
         </div>
       </section>
 
