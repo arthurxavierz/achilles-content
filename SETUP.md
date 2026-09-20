@@ -97,6 +97,14 @@ Presets vivem em `art_presets`. Cada um é um bloco de prompt fixo e específico
 
 Para adicionar um preset, insira em `art_presets` — ele aparece no estúdio e no Brand Brain sem deploy.
 
+### Referências de imagem
+
+Descrição em texto não reproduz mascote, motivo gráfico nem tratamento de luz específico. Por isso o Brand Brain aceita até seis imagens reais da marca, e as duas primeiras vão anexadas a **toda** arte gerada, via `/images/edits`. O texto continua valendo para as regras; a imagem passa a valer para o look.
+
+Quantas entram e com que fidelidade são lidas fica em `app_settings` (`reference_images_max`, `reference_fidelity`), ajustável por SQL. Cada referência anexada soma tokens de entrada no custo da imagem — subir o teto encarece cada geração.
+
+O upload vai direto do navegador para o Storage com o JWT do usuário; as policies do bucket garantem que ninguém escreve na pasta de outro.
+
 Regra que atravessa todos os prompts: **nenhum texto dentro da imagem**. A arte é fundo; a tipografia entra depois, em outra camada. Modelo de imagem renderizando texto é a forma mais rápida de um post parecer amador.
 
 ---
@@ -146,6 +154,8 @@ Estão documentadas uma a uma em `.env.example`. As que costumam causar problema
 |---|---|
 | `supabase/schema.sql` | estrutura completa, idempotente |
 | `supabase/migration-v5.sql` | preços, presets, custo real, PIX, cortesia de 200 |
+| `supabase/migration-v6.sql` | presets de marca gráfica e elementos recorrentes |
+| `supabase/migration-v7.sql` | imagens de referência da marca e app_settings |
 | `netlify/functions/_shared.js` | catálogo, custo, despacho e estorno |
 | `netlify/functions/_billing.js` | aplicação de pagamento aprovado |
 | `netlify/functions/_pix.js` | gerador de BR Code |

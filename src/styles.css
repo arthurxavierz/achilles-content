@@ -86,3 +86,14 @@
 @media(max-width:760px){.preset-grid,.quality-grid,.charge-preview.three,.quality-compare,.plan-grid.four{grid-template-columns:1fr}.queue-list>div{flex-direction:column;align-items:flex-start}.queue-actions{width:100%}.queue-actions button{flex:1;justify-content:center}.page-title .cost-chip{align-self:flex-start}.art-grid.single{grid-template-columns:1fr}}
 /* A .art-card base centraliza o conteudo; com imagem ela vira uma pilha de duas camadas. */
 figure.art-card{place-items:stretch;align-content:stretch;gap:0;margin:0;grid-template-columns:1fr;grid-template-rows:1fr}
+/* Referencias visuais da marca. */
+.ref-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+.ref-grid figure{position:relative;margin:0;aspect-ratio:4/5;border-radius:12px;overflow:hidden;border:1px solid #2c2c2c;background:#0b0b0b}
+.ref-grid img{width:100%;height:100%;object-fit:cover;display:block}
+.ref-grid figure button{position:absolute;top:7px;right:7px;border:0;background:rgba(10,10,10,.82);color:#e5a1a1;padding:7px;border-radius:8px;display:grid;place-items:center}
+.ref-grid figure button:hover{background:#6d2727;color:white}
+.ref-add{aspect-ratio:4/5;border:1px dashed #3a3a3a;border-radius:12px;display:grid;place-items:center;align-content:center;gap:7px;color:#777;cursor:pointer;background:#0b0b0b}
+.ref-add:hover{border-color:var(--gold);color:var(--gold)}
+.ref-add span{font-size:10px;letter-spacing:1px}
+@media(max-width:1050px){.ref-grid{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:760px){.ref-grid{grid-template-columns:repeat(3,1fr)}}

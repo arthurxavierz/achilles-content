@@ -1,4 +1,4 @@
-import { imageCostUsd,imageSize,loadCatalog,refundUnproducedImages,service,textCostUsd } from './_shared.js'
+import { imageCostUsd,imageSize,loadBrandReferences,loadCatalog,loadSettings,refundUnproducedImages,service,textCostUsd } from './_shared.js'
 
 // Estagio 1. O modelo de texto vira diretor de arte: le a marca e a copy e
 // devolve uma direcao fechada. Sem esta etapa o prompt de imagem vira uma
@@ -97,26 +97,30 @@ Reserve uma área ampla e de contraste uniforme para a tipografia ser aplicada d
 Nada de colagem, moldura, borda decorativa ou estética genérica de banco de imagens.`
 }
 
-// Slides 2 em diante usam o primeiro como referencia. E o que segura a
-// identidade visual do carrossel inteiro.
-async function callImageApi({prompt,size,quality,reference}){
+// Referencias anexadas ao pedido. Sao de duas origens e as duas importam:
+// as da marca (mascote, tratamento visual) e a primeira arte da geracao
+// (consistencia entre os slides do carrossel).
+async function callImageApi({prompt,size,quality,references,fidelity}){
   const model=process.env.OPENAI_IMAGE_MODEL
-  if(reference){
-    const form=new FormData()
-    form.append('model',model)
-    form.append('prompt',`${prompt}
-
-CONSISTÊNCIA
-Mantenha exatamente a mesma paleta, luz, textura e tratamento da imagem de referência anexada. Mude apenas o assunto e o enquadramento.`)
-    form.append('size',size)
-    form.append('quality',quality)
-    form.append('input_fidelity','low')
-    form.append('image[]',new Blob([reference],{type:'image/png'}),'referencia.png')
-    const res=await fetch('https://api.openai.com/v1/images/edits',{method:'POST',headers:{authorization:`Bearer ${process.env.OPENAI_API_KEY}`},body:form})
+  const list=(references||[]).filter(Boolean)
+  if(!list.length){
+    const res=await fetch('https://api.openai.com/v1/images/generations',{method:'POST',headers:{authorization:`Bearer ${process.env.OPENAI_API_KEY}`,'content-type':'application/json'},body:JSON.stringify({model,prompt,size,quality,output_format:'png'})})
     if(!res.ok)throw new Error(`OpenAI imagem ${res.status}`)
     return res.json()
   }
-  const res=await fetch('https://api.openai.com/v1/images/generations',{method:'POST',headers:{authorization:`Bearer ${process.env.OPENAI_API_KEY}`,'content-type':'application/json'},body:JSON.stringify({model,prompt,size,quality,output_format:'png'})})
+  const form=new FormData()
+  form.append('model',model)
+  form.append('prompt',`${prompt}
+
+REFERÊNCIA VISUAL ANEXADA
+As imagens anexadas são peças reais desta marca. Reproduza fielmente o tratamento delas: paleta, iluminação, acabamento, tipo de interface e qualquer personagem ou motivo gráfico que apareça nelas.
+Não copie a composição nem o assunto: construa a cena descrita acima com o visual das referências.
+Não reproduza nenhum texto que apareça nas referências.`)
+  form.append('size',size)
+  form.append('quality',quality)
+  form.append('input_fidelity',fidelity==='low'?'low':'high')
+  for(const ref of list) form.append('image[]',new Blob([ref.bytes],{type:ref.type||'image/png'}),ref.name||'referencia.png')
+  const res=await fetch('https://api.openai.com/v1/images/edits',{method:'POST',headers:{authorization:`Bearer ${process.env.OPENAI_API_KEY}`},body:form})
   if(!res.ok)throw new Error(`OpenAI imagem ${res.status}`)
   return res.json()
 }
@@ -148,24 +152,31 @@ export async function handler(event){
     const size=imageSize(g.format)
     const quality=j.image_quality||g.image_quality||'medium'
 
+    // Referencias da marca: valem para toda peca, inclusive a primeira.
+    // E o unico jeito de trazer mascote e tratamento visual proprios.
+    const settings=await loadSettings(svc)
+    const fidelity=settings.reference_fidelity||'high'
+    const brandRefs=await loadBrandReferences(svc,g.user_id,Number(settings.reference_images_max??2))
+
     // Numa regeneracao isolada a primeira arte ja existe. Buscamos ela para
     // servir de referencia, senao a peca refeita destoa do resto do carrossel.
-    let reference=null
+    let previous=null
     if(j.done_count>0){
       const {data:first}=await svc.from('generation_images').select('storage_path').eq('generation_id',g.id).eq('position',1).maybeSingle()
       if(first){
         const {data:blob}=await svc.storage.from('generation-assets').download(first.storage_path)
-        if(blob)reference=Buffer.from(await blob.arrayBuffer())
+        if(blob)previous={bytes:Buffer.from(await blob.arrayBuffer()),type:'image/png',name:'peca-anterior.png'}
       }
     }
 
     for(let i=j.done_count;i<j.total_count;i++){
       const prompt=buildImagePrompt({g,brand,preset,direction,index:i})
-      const payload=await callImageApi({prompt,size,quality,reference})
+      const payload=await callImageApi({prompt,size,quality,fidelity,references:[...brandRefs,previous]})
       const b64=payload.data?.[0]?.b64_json
       if(!b64)throw new Error(`Imagem ${i+1} sem conteúdo`)
       const bytes=Buffer.from(b64,'base64')
-      if(!reference)reference=bytes
+      // A primeira peca entregue vira referencia das seguintes, junto com as da marca.
+      if(!previous)previous={bytes,type:'image/png',name:'peca-anterior.png'}
 
       const path=`${g.user_id}/${g.id}/${i+1}.png`
       const {error:upErr}=await svc.storage.from('generation-assets').upload(path,bytes,{contentType:'image/png',upsert:true})

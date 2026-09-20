@@ -115,3 +115,30 @@ export async function refundUnproducedImages(svc,job,generation,reason){
   await svc.rpc('refund_credits',{p_user_id:generation.user_id,p_plan:plan,p_extra:extra,p_reason:reason,p_reference_id:generation.id})
   return {refunded:plan+extra,plan,extra}
 }
+
+// ---------------------------------------------------------------------
+// Configuracao operacional (public.app_settings). Mesmo cache do catalogo.
+// ---------------------------------------------------------------------
+let settingsCache = null
+export async function loadSettings(svc){
+  if(settingsCache && Date.now()-settingsCache.at < CATALOG_TTL_MS) return settingsCache.value
+  const {data}=await svc.from('app_settings').select('key,value')
+  const value=Object.fromEntries((data||[]).map(row=>[row.key,row.value]))
+  settingsCache={at:Date.now(),value}
+  return value
+}
+
+// Baixa as imagens de referencia da marca para anexar ao pedido de imagem.
+// E o que reproduz mascote e tratamento visual: descricao em texto nao faz isso.
+export async function loadBrandReferences(svc,userId,max=2){
+  if(max<=0) return []
+  const {data:rows}=await svc.from('brand_reference_images')
+    .select('storage_path').eq('user_id',userId).order('position').limit(max)
+  const out=[]
+  for(const row of rows||[]){
+    const {data:blob,error}=await svc.storage.from('brand-references').download(row.storage_path)
+    if(error||!blob) continue
+    out.push({bytes:Buffer.from(await blob.arrayBuffer()),type:blob.type||'image/png',name:row.storage_path.split('/').pop()||'referencia.png'})
+  }
+  return out
+}

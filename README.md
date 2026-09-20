@@ -46,15 +46,17 @@ Oito passos. Faça na ordem.
 2. Abra **SQL Editor** e rode, nesta ordem, o conteúdo completo de:
    - `supabase/schema.sql`
    - `supabase/migration-v5.sql`
+   - `supabase/migration-v6.sql`
+   - `supabase/migration-v7.sql`
 
-   Os dois são idempotentes: pode rodar de novo sem quebrar nada.
+   Todos são idempotentes: pode rodar de novo sem quebrar nada.
 3. Em **Project Settings → API**, copie:
    - `Project URL` → vira `SUPABASE_URL` e `VITE_SUPABASE_URL`
    - chave `anon` / publishable → `SUPABASE_PUBLISHABLE_KEY` e `VITE_SUPABASE_PUBLISHABLE_KEY`
    - chave `service_role` → `SUPABASE_SECRET_KEY`
 
    > A `service_role` ignora todas as regras de segurança do banco. Ela só pode existir nas variáveis de ambiente do Netlify. Nunca no frontend, nunca no Git.
-4. Em **Storage**, confirme que o bucket `generation-assets` existe e está **privado**. O `schema.sql` já cria assim.
+4. Em **Storage**, confirme que os buckets `generation-assets` e `brand-references` existem e estão **privados**. As migrações já criam assim.
 
 ### 2. Sua conta de administrador
 
