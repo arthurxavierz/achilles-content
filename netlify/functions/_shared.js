@@ -49,7 +49,14 @@ export const FORMATS = Object.freeze(['post','story','carousel'])
 export const copySlug = format => format==='carousel' ? 'copy_carousel' : format==='story' ? 'copy_story' : 'copy_post'
 export const imageSlug = quality => quality==='signature' ? 'image_signature' : 'image_standard'
 export const imageCount = format => format==='carousel' ? 5 : 1
-export const imageSize = format => format==='story' ? '1024x1536' : '1024x1024'
+// Tamanhos aceitos pelo gpt-image-1: 1024x1024 (1:1), 1024x1536 (2:3) e
+// 1536x1024 (3:2). Nao existe 4:5 nativo, entao o feed sai em 2:3 e e
+// recortado depois. Regulavel em app_settings, sem deploy.
+const SIZES=new Set(['1024x1024','1024x1536','1536x1024'])
+export function imageSize(format,settings={}){
+  const wanted = format==='story' ? (settings.story_image_size||'1024x1536') : (settings.feed_image_size||'1024x1536')
+  return SIZES.has(wanted) ? wanted : '1024x1536'
+}
 
 // ---------------------------------------------------------------------
 // Custo real em dolar. A OpenAI devolve usage em tokens; convertemos com

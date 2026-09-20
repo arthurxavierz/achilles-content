@@ -156,6 +156,7 @@ Estão documentadas uma a uma em `.env.example`. As que costumam causar problema
 | `supabase/migration-v5.sql` | preços, presets, custo real, PIX, cortesia de 200 |
 | `supabase/migration-v6.sql` | presets de marca gráfica e elementos recorrentes |
 | `supabase/migration-v7.sql` | imagens de referência da marca e app_settings |
+| `supabase/migration-v8.sql` | formato das peças e área de segurança do recorte |
 | `netlify/functions/_shared.js` | catálogo, custo, despacho e estorno |
 | `netlify/functions/_billing.js` | aplicação de pagamento aprovado |
 | `netlify/functions/_pix.js` | gerador de BR Code |

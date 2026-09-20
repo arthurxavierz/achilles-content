@@ -98,3 +98,8 @@ figure.art-card{place-items:stretch;align-content:stretch;gap:0;margin:0;grid-te
 @media(max-width:1050px){.ref-grid{grid-template-columns:repeat(4,1fr)}}
 @media(max-width:760px){.ref-grid{grid-template-columns:repeat(3,1fr)}}
 .role-tag{font-style:normal;margin-left:8px;font-size:8px;letter-spacing:1.4px;padding:3px 6px;border-radius:5px;background:#2a2318;color:var(--gold);border:1px solid #4a3f28;vertical-align:middle}
+/* A arte gerada define a propria altura. Caixa de proporcao fixa com
+   object-fit:cover cortava topo e base de qualquer imagem que nao fosse 4:5. */
+figure.art-card{aspect-ratio:auto}
+figure.art-card img{height:auto;object-fit:contain}
+.thumb-grid img{aspect-ratio:auto;height:auto;object-fit:contain}

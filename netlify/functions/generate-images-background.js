@@ -59,7 +59,7 @@ Adapte o assunto ao nicho tratado no slide, sem trocar o estilo da marca.`
 // Estagio 2. A ordem aqui importa mais que o conteudo: o modelo de imagem
 // pesa mais o inicio do prompt. Por isso a marca vem antes do preset, e nao
 // depois. Invertido, o preset sequestra a peca e o resultado sai generico.
-function buildImagePrompt({g,brand,preset,direction,index}){
+function buildImagePrompt({g,brand,preset,direction,index,safeCrop}){
   const scene=direction.scenes?.[index]||direction.scenes?.[0]||{}
   const slide=g.copy_json?.slides?.[index]||g.copy_json?.slides?.[0]||{}
   // O que a marca declarou vence o que o modelo inferiu.
@@ -90,8 +90,12 @@ Clima: ${direction.mood||'confiante e profissional'}.
 ESTILO BASE, aplicar somente no que não conflitar com a identidade da marca
 ${preset?.prompt_block||''}
 
+ENQUADRAMENTO
+${safeCrop?`A peça será recortada para ${safeCrop} a partir do centro. Mantenha o assunto principal, o personagem e qualquer elemento essencial dentro da faixa central, com margem de segurança generosa no topo e na base. Nada importante encostado nas bordas.`:'Componha para a proporção inteira do quadro, sem elemento essencial encostado nas bordas.'}
+
 PROIBIÇÕES
 Não renderize texto, letra, número, palavra, legenda, logotipo ou marca d'água. Nenhum caractere legível em lugar nenhum da imagem.
+As imagens de referência contêm títulos e textos. Eles são parte da peça original, não do estilo: reproduza a estética delas e deixe o lugar do texto vazio.
 Elementos de interface, HUD, painéis, gráficos e circuitos são permitidos e desejáveis quando a identidade da marca os usa, desde que fiquem sem nenhum texto legível: use formas, barras, ícones e linhas no lugar de rótulos.
 Reserve uma área ampla e de contraste uniforme para a tipografia ser aplicada depois, em outra camada.
 Nada de colagem, moldura, borda decorativa ou estética genérica de banco de imagens.`
@@ -149,12 +153,13 @@ export async function handler(event){
       await svc.from('generations').update({art_direction:direction}).eq('id',g.id)
     }
 
-    const size=imageSize(g.format)
+    const settings=await loadSettings(svc)
+    const size=imageSize(g.format,settings)
     const quality=j.image_quality||g.image_quality||'medium'
+    const safeCrop=g.format==='story'?'':(settings.feed_safe_crop||'')
 
     // Referencias da marca: valem para toda peca, inclusive a primeira.
     // E o unico jeito de trazer mascote e tratamento visual proprios.
-    const settings=await loadSettings(svc)
     const fidelity=settings.reference_fidelity||'high'
     const brandRefs=await loadBrandReferences(svc,g.user_id,Number(settings.reference_images_max??2))
 
@@ -170,7 +175,7 @@ export async function handler(event){
     }
 
     for(let i=j.done_count;i<j.total_count;i++){
-      const prompt=buildImagePrompt({g,brand,preset,direction,index:i})
+      const prompt=buildImagePrompt({g,brand,preset,direction,index:i,safeCrop})
       const payload=await callImageApi({prompt,size,quality,fidelity,references:[...brandRefs,previous]})
       const b64=payload.data?.[0]?.b64_json
       if(!b64)throw new Error(`Imagem ${i+1} sem conteúdo`)
