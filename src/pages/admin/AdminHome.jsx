@@ -112,7 +112,7 @@ export default function AdminHome(){
     <section className="panel">
       <div className="panel-head"><div><span className="eyebrow">CLIENTES</span><h2>BASE ATIVA E SUPORTE.</h2></div><button className="small-btn" onClick={()=>load().catch(e=>setMsg(e.message))}><RefreshCw size={15}/>ATUALIZAR</button></div>
       <div className="admin-table">{clients.map(c=><Link to={`/admin/clientes/${c.id}`} key={c.id}>
-        <div><strong>{c.full_name||'Sem nome'}</strong><span>{c.email}</span></div>
+        <div><strong>{c.full_name||'Sem nome'}{c.role==='admin'&&<em className="role-tag">ADMIN</em>}</strong><span>{c.email}</span></div>
         <span>{number(c.credits_plan||0)} plano</span>
         <b>{number(c.credits||0)} cr</b>
         <i className={c.active?'on':'off'}>{c.active?'Ativo':'Desativado'}</i>
