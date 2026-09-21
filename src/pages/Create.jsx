@@ -22,6 +22,7 @@ export default function Create() {
   const [format,setFormat]=useState('carousel')
   const [quality,setQuality]=useState('standard')
   const [preset,setPreset]=useState('')
+  const [renderText,setRenderText]=useState(null)   // null = herda o padrão da marca
   const [theme,setTheme]=useState('')
   const [step,setStep]=useState(1)
   const [copy,setCopy]=useState(null)
@@ -67,7 +68,7 @@ export default function Create() {
         demoSpend(costImages); setJob({status:'processing',done:0,total:spec.imageCount}); setStep(4)
         let n=0; const timer=setInterval(()=>{ n++; setJob(j=>({...j,done:n,status:n>=spec.imageCount?'done':'processing'})); if(n>=spec.imageCount) clearInterval(timer) },650)
       } else {
-        const out=await api('generate-images',{method:'POST',body:{generation_id:generationId,quality,preset_slug:preset,idempotency_key:uid()}})
+        const out=await api('generate-images',{method:'POST',body:{generation_id:generationId,quality,preset_slug:preset,...(renderText===null?{}:{render_text:renderText}),idempotency_key:uid()}})
         setJob({id:out.job_id,status:'queued',done:0,total:spec.imageCount}); setStep(4); await refresh()
       }
     }catch(e){ setError(e.message) } finally { setBusy(false) }
@@ -126,6 +127,12 @@ export default function Create() {
 
       <div className="field-head"><span className="eyebrow">DIREÇÃO DE ARTE</span><small>Define a estética das imagens desta geração.</small></div>
       <div className="preset-grid">{(presets||[]).map(p=><button type="button" key={p.slug} className={preset===p.slug?'active':''} onClick={()=>setPreset(p.slug)}><strong>{p.name}</strong><span>{p.summary}</span></button>)}</div>
+
+      <div className="field-head"><span className="eyebrow">TEXTO NA ARTE</span><small>Sem escolher, vale o padrão do seu Brand Brain.</small></div>
+      <div className="quality-grid">
+        <button type="button" className={renderText===false?'active':''} onClick={()=>setRenderText(false)}><strong>Arte limpa</strong><span>Sem texto. Você aplica a tipografia depois, no seu editor.</span></button>
+        <button type="button" className={renderText===true?'active':''} onClick={()=>setRenderText(true)}><strong>Arte fechada</strong><span>O título da copy vai escrito na imagem, pronta para publicar.</span></button>
+      </div>
 
       <div className="field-head"><span className="eyebrow">QUALIDADE DA IMAGEM</span><small>Cobrada só na etapa das artes.</small></div>
       <div className="quality-grid">{QUALITIES.map(q=><button type="button" key={q.slug} className={quality===q.slug?'active':''} onClick={()=>setQuality(q.slug)}>{q.slug==='signature'&&<Sparkles size={15}/>}<strong>{q.label}</strong><span>{q.hint}</span><b>{number(imageCredits(pricing,q.slug))} cr por arte</b></button>)}</div>

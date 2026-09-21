@@ -8,8 +8,8 @@ import { dateTime, money, number } from '../../lib/format'
 import { useBilling } from '../../context/BillingContext'
 
 const LONG=['audience','tone','briefing','guardrails','visual_rules','references_text','recurring_elements','forbidden_terms','differentiators','services']
-const BRAND_FIELDS=['brand_name','segment','instagram_handle','default_cta','audience','tone','differentiators','services','briefing','guardrails','visual_rules','references_text','recurring_elements','forbidden_terms']
-const LABEL={brand_name:'Nome da marca',segment:'Segmento',instagram_handle:'Instagram',default_cta:'CTA padrão',audience:'Público',tone:'Tom de voz',differentiators:'Diferenciais',services:'Serviços',briefing:'Briefing',guardrails:'Guardrails',visual_rules:'Regras visuais',references_text:'Referências visuais',recurring_elements:'Elementos recorrentes',forbidden_terms:'Termos proibidos'}
+const BRAND_FIELDS=['brand_name','segment','instagram_handle','default_cta','audience','tone','differentiators','services','briefing','guardrails','visual_rules','references_text','recurring_elements','text_style','forbidden_terms']
+const LABEL={brand_name:'Nome da marca',segment:'Segmento',instagram_handle:'Instagram',default_cta:'CTA padrão',audience:'Público',tone:'Tom de voz',differentiators:'Diferenciais',services:'Serviços',briefing:'Briefing',guardrails:'Guardrails',visual_rules:'Regras visuais',references_text:'Referências visuais',recurring_elements:'Elementos recorrentes',text_style:'Estilo da tipografia',forbidden_terms:'Termos proibidos'}
 
 export default function ClientDetail(){
   const {id}=useParams()

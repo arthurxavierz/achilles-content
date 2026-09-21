@@ -113,7 +113,15 @@ Quantas entram e com que fidelidade são lidas fica em `app_settings` (`referenc
 
 O upload vai direto do navegador para o Storage com o JWT do usuário; as policies do bucket garantem que ninguém escreve na pasta de outro.
 
-Regra que atravessa todos os prompts: **nenhum texto dentro da imagem**. A arte é fundo; a tipografia entra depois, em outra camada. Modelo de imagem renderizando texto é a forma mais rápida de um post parecer amador.
+### Texto na arte
+
+Até a V10 o prompt proibia qualquer caractere legível na imagem, partindo da premissa de que a tipografia entraria numa camada de composição. Essa camada não existe no produto, e marca com identidade gráfica forte tem o título como parte da arte. Virou escolha, em dois níveis: `brand_profiles.render_text` é o padrão da marca, e cada geração pode decidir diferente.
+
+Com o modo ligado, o título da copy vai para o prompt **entre aspas e literal**, com instrução explícita de não inventar, não traduzir e não acrescentar nada. Modelo de imagem que "interpreta" texto erra grafia e cria palavra. O subtítulo só entra se tiver até 110 caracteres — acima disso vira parede de texto e a taxa de erro sobe.
+
+O modo escolhido fica gravado em `generations.render_text`, então uma regeneração de peça isolada sai coerente com o resto do carrossel. `brand_profiles.text_style` guarda a orientação de tipografia, separada de `visual_rules` porque só se aplica nesse modo.
+
+Com o modo desligado, a regra antiga volta inteira: nada de texto, e área limpa reservada para a tipografia entrar depois.
 
 ---
 
@@ -166,6 +174,7 @@ Estão documentadas uma a uma em `.env.example`. As que costumam causar problema
 | `supabase/migration-v7.sql` | imagens de referência da marca e app_settings |
 | `supabase/migration-v8.sql` | formato das peças e área de segurança do recorte |
 | `supabase/migration-v9.sql` | modelo de imagem por faixa e formato 4:5 nativo |
+| `supabase/migration-v10.sql` | texto na arte como escolha, não como regra |
 | `netlify/functions/_shared.js` | catálogo, custo, despacho e estorno |
 | `netlify/functions/_billing.js` | aplicação de pagamento aprovado |
 | `netlify/functions/_pix.js` | gerador de BR Code |

@@ -42,7 +42,8 @@ Como decidir:
 A paleta sai da identidade da marca, não do preset. Se a marca descreve um fundo dourado, a paleta é dourada.
 Em recurring_elements repita o que a marca declarou acima como recorrente. Se ela não declarou nada, extraia da referência visual o que aparece em toda peça: mascote, motivos gráficos, tipo de interface, texturas de fundo. Não havendo nada, devolva lista vazia.
 Cada cena descreve um assunto visual concreto e construível, nunca um conceito abstrato.
-Elementos de interface, HUD, gráficos, circuitos e dashboards são permitidos quando a marca os usa, desde que sem nenhum texto legível.
+Elementos de interface, HUD, gráficos, circuitos e dashboards são permitidos quando a marca os usa, desde que sem nenhum rótulo escrito.
+${g.render_text?'O título da peça será escrito sobre a arte, então cada cena precisa deixar a faixa superior limpa e de contraste uniforme, com o assunto na metade inferior ou na lateral.':''}
 As cenas variam de enquadramento entre si, mas mantêm a mesma paleta, luz, textura e elementos recorrentes.
 Adapte o assunto ao nicho tratado no slide, sem trocar o estilo da marca.`
 
@@ -59,7 +60,37 @@ Adapte o assunto ao nicho tratado no slide, sem trocar o estilo da marca.`
 // Estagio 2. A ordem aqui importa mais que o conteudo: o modelo de imagem
 // pesa mais o inicio do prompt. Por isso a marca vem antes do preset, e nao
 // depois. Invertido, o preset sequestra a peca e o resultado sai generico.
-function buildImagePrompt({g,brand,preset,direction,index,safeCrop}){
+// Quando o texto entra na arte ele precisa chegar ao modelo literal, com
+// acento, e com regra explicita de que nada alem daquilo pode ser escrito.
+// Modelo de imagem que "interpreta" texto inventa palavra e erra grafia.
+function textBlock({brand,slide,render}){
+  if(!render) return `PROIBIÇÕES DE TEXTO
+Não renderize texto, letra, número, palavra, legenda, logotipo ou marca d'água. Nenhum caractere legível em lugar nenhum da imagem.
+As imagens de referência contêm títulos. Eles são da peça original, não do estilo: reproduza a estética e deixe o lugar do texto vazio.
+Reserve uma área ampla e de contraste uniforme para a tipografia ser aplicada depois, em outra camada.`
+
+  const title=String(slide?.title||'').trim()
+  const subtitle=String(slide?.subtitle||'').trim()
+  // Subtitulo longo vira parede de texto na arte e o modelo erra mais.
+  const support=subtitle.length>0&&subtitle.length<=110?subtitle:''
+
+  return `TEXTO QUE VAI NA ARTE
+Escreva na imagem, exatamente como está entre aspas, sem alterar nenhuma letra, acento ou pontuação:
+Título: "${title}"${support?`
+Apoio: "${support}"`:''}
+
+Como aplicar:
+${brand?.text_style||'Tipografia condensada pesada em caixa alta. Título em branco com uma palavra destacada na cor principal da marca.'}
+${brand?.typography?`Referência de tipografia: ${brand.typography}.`:''}
+O título ocupa a faixa superior da peça, alinhado à esquerda, em no máximo três linhas, com margem folgada até a borda.
+O texto fica sobre área limpa e de alto contraste, nunca por cima do rosto do personagem nem de detalhe importante.
+
+Regras do texto, inegociáveis:
+Nenhuma palavra além das citadas acima. Não invente, não traduza, não repita, não acrescente assinatura, site, arroba ou marca d'água.
+Ortografia do português do Brasil, com acentuação correta e sem hifenizar palavra no fim da linha.`
+}
+
+function buildImagePrompt({g,brand,preset,direction,index,safeCrop,renderText}){
   const scene=direction.scenes?.[index]||direction.scenes?.[0]||{}
   const slide=g.copy_json?.slides?.[index]||g.copy_json?.slides?.[0]||{}
   // O que a marca declarou vence o que o modelo inferiu.
@@ -91,13 +122,12 @@ ESTILO BASE, aplicar somente no que não conflitar com a identidade da marca
 ${preset?.prompt_block||''}
 
 ENQUADRAMENTO
-${safeCrop?`A peça será recortada para ${safeCrop} a partir do centro. Mantenha o assunto principal, o personagem e qualquer elemento essencial dentro da faixa central, com margem de segurança generosa no topo e na base. Nada importante encostado nas bordas.`:'Componha para a proporção inteira do quadro, sem elemento essencial encostado nas bordas.'}
+${renderText?'Deixe a faixa superior da peça limpa e de contraste uniforme para receber o título; posicione o personagem e os elementos principais na metade inferior ou na lateral. ':''}${safeCrop?`A peça será recortada para ${safeCrop} a partir do centro. Mantenha o assunto principal, o personagem e qualquer elemento essencial dentro da faixa central, com margem de segurança generosa no topo e na base. Nada importante encostado nas bordas.`:'Componha para a proporção inteira do quadro, sem elemento essencial encostado nas bordas.'}
 
-PROIBIÇÕES
-Não renderize texto, letra, número, palavra, legenda, logotipo ou marca d'água. Nenhum caractere legível em lugar nenhum da imagem.
-As imagens de referência contêm títulos e textos. Eles são parte da peça original, não do estilo: reproduza a estética delas e deixe o lugar do texto vazio.
-Elementos de interface, HUD, painéis, gráficos e circuitos são permitidos e desejáveis quando a identidade da marca os usa, desde que fiquem sem nenhum texto legível: use formas, barras, ícones e linhas no lugar de rótulos.
-Reserve uma área ampla e de contraste uniforme para a tipografia ser aplicada depois, em outra camada.
+${textBlock({brand,slide,render:renderText})}
+
+PROIBIÇÕES GERAIS
+Elementos de interface, HUD, painéis, gráficos e circuitos são permitidos e desejáveis quando a identidade da marca os usa, desde que fiquem sem nenhum rótulo escrito: use formas, barras, ícones e linhas no lugar de rótulos.
 Nada de colagem, moldura, borda decorativa ou estética genérica de banco de imagens.`
 }
 
@@ -118,7 +148,7 @@ async function callImageApi({model,prompt,size,quality,references,fidelity}){
 REFERÊNCIA VISUAL ANEXADA
 As imagens anexadas são peças reais desta marca. Reproduza fielmente o tratamento delas: paleta, iluminação, acabamento, tipo de interface e qualquer personagem ou motivo gráfico que apareça nelas.
 Não copie a composição nem o assunto: construa a cena descrita acima com o visual das referências.
-Não reproduza nenhum texto que apareça nas referências.`)
+Não copie o texto que aparece nas referências: a peça tem o texto próprio definido acima, ou nenhum.`)
   form.append('size',size)
   form.append('quality',quality)
   // input_fidelity so existe na familia gpt-image-1. No 2.5 a fidelidade a
@@ -158,6 +188,7 @@ export async function handler(event){
     const size=imageSize(g.format,settings)
     const quality=j.image_quality||g.image_quality||'medium'
     const model=j.openai_model||g.openai_model||imageModelOf(null,settings)
+    const renderText=j.render_text ?? g.render_text ?? false
     const safeCrop=g.format==='story'?'':(settings.feed_safe_crop||'')
 
     // Referencias da marca: valem para toda peca, inclusive a primeira.
@@ -177,7 +208,7 @@ export async function handler(event){
     }
 
     for(let i=j.done_count;i<j.total_count;i++){
-      const prompt=buildImagePrompt({g,brand,preset,direction,index:i,safeCrop})
+      const prompt=buildImagePrompt({g,brand,preset,direction,index:i,safeCrop,renderText})
       const payload=await callImageApi({model,prompt,size,quality,fidelity,references:[...brandRefs,previous]})
       const b64=payload.data?.[0]?.b64_json
       if(!b64)throw new Error(`Imagem ${i+1} sem conteúdo`)

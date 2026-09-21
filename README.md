@@ -50,6 +50,7 @@ Oito passos. Faça na ordem.
    - `supabase/migration-v7.sql`
    - `supabase/migration-v8.sql`
    - `supabase/migration-v9.sql`
+   - `supabase/migration-v10.sql`
 
    Todos são idempotentes: pode rodar de novo sem quebrar nada.
 3. Em **Project Settings → API**, copie:

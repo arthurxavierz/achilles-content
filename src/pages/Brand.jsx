@@ -8,7 +8,7 @@ import { uid } from '../lib/format'
 import { useAuth } from '../context/AuthContext'
 import { useBilling } from '../context/BillingContext'
 
-const empty = { brand_name:'', segment:'', audience:'', tone:'Profissional, direto e humano.', primary_color:'#D8AF58', secondary_color:'#111111', typography:'Anton para títulos e Inter para textos', briefing:'', guardrails:'', visual_rules:'', differentiators:'', services:'', default_cta:'', instagram_handle:'', references_text:'', forbidden_terms:'', preset_slug:'editorial', recurring_elements:'' }
+const empty = { brand_name:'', segment:'', audience:'', tone:'Profissional, direto e humano.', primary_color:'#D8AF58', secondary_color:'#111111', typography:'Anton para títulos e Inter para textos', briefing:'', guardrails:'', visual_rules:'', differentiators:'', services:'', default_cta:'', instagram_handle:'', references_text:'', forbidden_terms:'', preset_slug:'editorial', recurring_elements:'', render_text:false, text_style:'' }
 
 // So estes campos vao para a API. Evita mandar id, user_id e timestamps de volta.
 const FIELDS = Object.keys(empty)
@@ -134,6 +134,15 @@ export default function Brand() {
           <label className="wide">Regras visuais<textarea rows="4" value={brand.visual_rules} onChange={e=>set('visual_rules',e.target.value)} placeholder="Fundo escuro, dourado como destaque, composição editorial, muito respiro."/></label>
           <label className="wide">Referências visuais<textarea rows="4" value={brand.references_text} onChange={e=>set('references_text',e.target.value)} placeholder="Descreva ou cole links de perfis e campanhas que representam o padrão que você quer."/></label>
           <label className="wide">Elementos recorrentes<textarea rows="3" value={brand.recurring_elements} onChange={e=>set('recurring_elements',e.target.value)} placeholder="O que aparece em toda peça: mascote, tipo de interface, motivos gráficos, textura de fundo."/></label>
+        </div>
+
+        <div className="field-head"><span className="eyebrow">TEXTO NA ARTE</span><small>Define o padrão da marca. Cada geração ainda pode escolher diferente.</small></div>
+        <div className="switch-row">
+          <button type="button" className={brand.render_text?'switch on':'switch'} onClick={()=>set('render_text',!brand.render_text)} aria-pressed={brand.render_text}><i/></button>
+          <div><strong>{brand.render_text?'A arte já vem com o título escrito':'A arte vem limpa, sem texto'}</strong><span>{brand.render_text?'Pronta para publicar. O modelo pode errar uma letra, e aí é só refazer a peça.':'Você aplica a tipografia depois, no seu editor. Controle total.'}</span></div>
+        </div>
+        <div className="form-grid">
+          <label className="wide">Estilo da tipografia<textarea rows="3" value={brand.text_style} onChange={e=>set('text_style',e.target.value)} placeholder="Tipografia condensada pesada em caixa alta. Título em branco com uma palavra destacada na cor principal."/></label>
         </div>
       </section>
 

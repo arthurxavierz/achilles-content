@@ -25,7 +25,7 @@ export async function handler(event){
 
     // start_index marca onde a regeneracao comeca. O estorno por falha usa
     // essa janela para devolver so o que foi cobrado agora.
-    const {data:job,error}=await auth.service.from('generation_jobs').upsert({generation_id:g.id,status:'queued',attempts:0,start_index:position-1,done_count:position-1,total_count:position,image_quality:item.image_quality,openai_model:model,credits_each:item.credits,charged_plan:spent.spent_plan||0,charged_extra:spent.spent_extra||0,last_error:null,finished_at:null,updated_at:new Date().toISOString()},{onConflict:'generation_id'}).select('id').single()
+    const {data:job,error}=await auth.service.from('generation_jobs').upsert({generation_id:g.id,status:'queued',attempts:0,start_index:position-1,done_count:position-1,total_count:position,image_quality:item.image_quality,openai_model:model,render_text:!!g.render_text,credits_each:item.credits,charged_plan:spent.spent_plan||0,charged_extra:spent.spent_extra||0,last_error:null,finished_at:null,updated_at:new Date().toISOString()},{onConflict:'generation_id'}).select('id').single()
     if(error)throw error
 
     await auth.service.from('generations').update({status:'processing'}).eq('id',g.id)

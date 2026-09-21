@@ -1,4 +1,4 @@
-import { assertSpendCeiling,body,dispatchJob,imageCount,imageModelOf,imageSlug,json,loadCatalog,loadSettings,method,priceOf,rateLimit,requireUser,safeError,text } from './_shared.js'
+import { assertSpendCeiling,body,boolean,dispatchJob,imageCount,imageModelOf,imageSlug,json,loadCatalog,loadSettings,method,priceOf,rateLimit,requireUser,safeError,text } from './_shared.js'
 
 export async function handler(event){
   try{
@@ -28,20 +28,22 @@ export async function handler(event){
 
     // O preset vem do estudio; se vier vazio, cai no preset da marca.
     const requested=text(input.preset_slug,60)
-    const {data:brand}=await auth.service.from('brand_profiles').select('preset_slug').eq('user_id',auth.user.id).maybeSingle()
+    const {data:brand}=await auth.service.from('brand_profiles').select('preset_slug,render_text').eq('user_id',auth.user.id).maybeSingle()
+    // O estudio manda a escolha da geracao; sem ela, vale o padrao da marca.
+    const renderText=boolean(input.render_text,!!brand?.render_text)
     const preset=catalog.presetsBySlug[requested]?requested:(catalog.presetsBySlug[brand?.preset_slug]?brand.preset_slug:catalog.presets[0]?.slug)
 
     const {data:spent,error}=await auth.service.rpc('spend_credits',{p_user_id:auth.user.id,p_amount:cost,p_reason:`${item.label} · ${g.format}`,p_reference_id:g.id})
     if(error)throw error
     if(!spent?.ok)throw Object.assign(new Error('Saldo insuficiente'),{statusCode:402})
 
-    const {data:job,error:jerr}=await auth.service.from('generation_jobs').insert({generation_id:g.id,total_count:count,image_quality:item.image_quality,openai_model:model,credits_each:each,charged_plan:spent.spent_plan||0,charged_extra:spent.spent_extra||0}).select('id').single()
+    const {data:job,error:jerr}=await auth.service.from('generation_jobs').insert({generation_id:g.id,total_count:count,image_quality:item.image_quality,openai_model:model,render_text:renderText,credits_each:each,charged_plan:spent.spent_plan||0,charged_extra:spent.spent_extra||0}).select('id').single()
     if(jerr){
       await auth.service.rpc('refund_credits',{p_user_id:auth.user.id,p_plan:spent.spent_plan||0,p_extra:spent.spent_extra||0,p_reason:'Estorno por falha ao criar job',p_reference_id:g.id})
       throw jerr
     }
 
-    await auth.service.from('generations').update({status:'processing',image_cost:cost,image_quality:item.image_quality,openai_model:model,preset_slug:preset}).eq('id',g.id)
+    await auth.service.from('generations').update({status:'processing',image_cost:cost,image_quality:item.image_quality,openai_model:model,preset_slug:preset,render_text:renderText}).eq('id',g.id)
 
     await dispatchJob(job.id)
     return json(202,{job_id:job.id,credits_spent:cost})
