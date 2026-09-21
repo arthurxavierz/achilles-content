@@ -1,4 +1,4 @@
-import { assertSpendCeiling,body,dispatchJob,imageCount,imageSlug,json,loadCatalog,method,priceOf,rateLimit,requireUser,safeError,text } from './_shared.js'
+import { assertSpendCeiling,body,dispatchJob,imageCount,imageModelOf,imageSlug,json,loadCatalog,loadSettings,method,priceOf,rateLimit,requireUser,safeError,text } from './_shared.js'
 
 export async function handler(event){
   try{
@@ -18,7 +18,10 @@ export async function handler(event){
     if(old)return json(202,{job_id:old.id,reused:true})
 
     const catalog=await loadCatalog(auth.service)
+    const settings=await loadSettings(auth.service)
     const item=priceOf(catalog,imageSlug(quality))
+    // O modelo vem da faixa de preco: Padrao e Assinatura usam motores diferentes.
+    const model=imageModelOf(item,settings)
     const count=imageCount(g.format)
     const each=item.credits
     const cost=each*count
@@ -32,13 +35,13 @@ export async function handler(event){
     if(error)throw error
     if(!spent?.ok)throw Object.assign(new Error('Saldo insuficiente'),{statusCode:402})
 
-    const {data:job,error:jerr}=await auth.service.from('generation_jobs').insert({generation_id:g.id,total_count:count,image_quality:item.image_quality,credits_each:each,charged_plan:spent.spent_plan||0,charged_extra:spent.spent_extra||0}).select('id').single()
+    const {data:job,error:jerr}=await auth.service.from('generation_jobs').insert({generation_id:g.id,total_count:count,image_quality:item.image_quality,openai_model:model,credits_each:each,charged_plan:spent.spent_plan||0,charged_extra:spent.spent_extra||0}).select('id').single()
     if(jerr){
       await auth.service.rpc('refund_credits',{p_user_id:auth.user.id,p_plan:spent.spent_plan||0,p_extra:spent.spent_extra||0,p_reason:'Estorno por falha ao criar job',p_reference_id:g.id})
       throw jerr
     }
 
-    await auth.service.from('generations').update({status:'processing',image_cost:cost,image_quality:item.image_quality,preset_slug:preset}).eq('id',g.id)
+    await auth.service.from('generations').update({status:'processing',image_cost:cost,image_quality:item.image_quality,openai_model:model,preset_slug:preset}).eq('id',g.id)
 
     await dispatchJob(job.id)
     return json(202,{job_id:job.id,credits_spent:cost})

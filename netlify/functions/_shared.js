@@ -49,14 +49,36 @@ export const FORMATS = Object.freeze(['post','story','carousel'])
 export const copySlug = format => format==='carousel' ? 'copy_carousel' : format==='story' ? 'copy_story' : 'copy_post'
 export const imageSlug = quality => quality==='signature' ? 'image_signature' : 'image_standard'
 export const imageCount = format => format==='carousel' ? 5 : 1
-// Tamanhos aceitos pelo gpt-image-1: 1024x1024 (1:1), 1024x1536 (2:3) e
-// 1536x1024 (3:2). Nao existe 4:5 nativo, entao o feed sai em 2:3 e e
-// recortado depois. Regulavel em app_settings, sem deploy.
-const SIZES=new Set(['1024x1024','1024x1536','1536x1024'])
-export function imageSize(format,settings={}){
-  const wanted = format==='story' ? (settings.story_image_size||'1024x1536') : (settings.feed_image_size||'1024x1536')
-  return SIZES.has(wanted) ? wanted : '1024x1536'
+// A familia gpt-image-2.5 aceita dimensao customizada: lados multiplos de
+// 16, proporcao entre 1:3 e 3:1 e area entre 655.360 e 8.294.400 pixels.
+// Com isso o feed sai em 4:5 nativo e o recorte deixa de existir.
+const MIN_PIXELS=655_360, MAX_PIXELS=8_294_400
+export function validSize(value){
+  const m=/^(\d+)x(\d+)$/.exec(String(value||'').trim())
+  if(!m) return null
+  const w=Number(m[1]), h=Number(m[2])
+  if(w%16 || h%16) return null
+  const ratio=w/h
+  if(ratio<1/3 || ratio>3) return null
+  const pixels=w*h
+  if(pixels<MIN_PIXELS || pixels>MAX_PIXELS) return null
+  return {size:`${w}x${h}`,pixels}
 }
+
+export function imageSize(format,settings={}){
+  const wanted = format==='story' ? settings.story_image_size : settings.feed_image_size
+  const ok=validSize(wanted)
+  if(ok) return ok.size
+  // Padroes: 4:5 para feed, 9:16 para story. Ambos exatos e validos.
+  return format==='story' ? '1152x2048' : '1024x1280'
+}
+
+// input_fidelity so existe na familia gpt-image-1. Mandar o parametro para
+// um modelo que nao o conhece derruba a chamada inteira.
+export const supportsInputFidelity = model => /^gpt-image-1/.test(String(model||''))
+
+export const imageModelOf = (item,settings={}) =>
+  item?.openai_model || settings.image_model_fallback || process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2.5-flare'
 
 // ---------------------------------------------------------------------
 // Custo real em dolar. A OpenAI devolve usage em tokens; convertemos com
@@ -67,12 +89,19 @@ const price = (name,fallback) => Number(process.env[name] ?? fallback)
 export const USD_PER_M = {
   textInput: () => price('OPENAI_TEXT_INPUT_USD_PER_M', 1.25),
   textOutput: () => price('OPENAI_TEXT_OUTPUT_USD_PER_M', 10),
-  imageInput: () => price('OPENAI_IMAGE_INPUT_USD_PER_M', 10),
-  imageOutput: () => price('OPENAI_IMAGE_OUTPUT_USD_PER_M', 40)
+  imageInput: () => price('OPENAI_IMAGE_INPUT_USD_PER_M', 8),
+  imageOutput: () => price('OPENAI_IMAGE_OUTPUT_USD_PER_M', 30)
 }
 
-// Fallback quando a resposta nao traz usage. Tokens de saida por imagem.
-const IMAGE_OUTPUT_TOKENS = { '1024x1024':{low:272,medium:1056,high:4160}, '1024x1536':{low:408,medium:1584,high:6240} }
+// Fallback quando a resposta nao traz usage. Com dimensao livre nao da para
+// tabelar, entao estimamos por area. Os fatores saem da razao tokens/pixel
+// observada no gpt-image-1 em cada faixa de qualidade.
+const TOKENS_PER_MPX = { low:260, medium:1010, high:3980, xhigh:6000, max:8000 }
+function estimateOutputTokens(size,quality){
+  const parsed=validSize(size)
+  const mpx=(parsed?.pixels ?? 1_048_576)/1_000_000
+  return Math.round(mpx * (TOKENS_PER_MPX[quality] ?? TOKENS_PER_MPX.medium))
+}
 
 export function textCostUsd(usage){
   const input=Number(usage?.input_tokens||0), output=Number(usage?.output_tokens||0)
@@ -80,7 +109,7 @@ export function textCostUsd(usage){
 }
 
 export function imageCostUsd(usage,size,quality){
-  const output=Number(usage?.output_tokens||0) || (IMAGE_OUTPUT_TOKENS[size]?.[quality] ?? IMAGE_OUTPUT_TOKENS['1024x1024'].medium)
+  const output=Number(usage?.output_tokens||0) || estimateOutputTokens(size,quality)
   const input=Number(usage?.input_tokens||0)
   return (input*USD_PER_M.imageInput() + output*USD_PER_M.imageOutput())/1_000_000
 }

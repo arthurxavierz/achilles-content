@@ -49,6 +49,7 @@ Oito passos. Faça na ordem.
    - `supabase/migration-v6.sql`
    - `supabase/migration-v7.sql`
    - `supabase/migration-v8.sql`
+   - `supabase/migration-v9.sql`
 
    Todos são idempotentes: pode rodar de novo sem quebrar nada.
 3. Em **Project Settings → API**, copie:
@@ -72,7 +73,7 @@ Oito passos. Faça na ordem.
 
 1. Gere uma chave em [platform.openai.com](https://platform.openai.com) → `OPENAI_API_KEY`.
 2. **Defina um limite de uso mensal na própria conta OpenAI.** Isso é o freio de emergência de fora do sistema; o `MONTHLY_API_CEILING_USD` é o de dentro. Os dois juntos.
-3. Confirme os modelos em `OPENAI_TEXT_MODEL` e `OPENAI_IMAGE_MODEL`. O modelo de imagem precisa aceitar `/images/generations` **e** `/images/edits` — é o endpoint de edits que mantém a identidade visual entre os slides do carrossel.
+3. Confirme o `OPENAI_TEXT_MODEL`. O modelo de imagem **não** vem do ambiente: cada faixa de preço escolhe o seu, na coluna `pricing.openai_model`. Padrão usa `gpt-image-2.5-flare`, Assinatura usa `gpt-image-2.5-sunburst`. Trocar de modelo é um `update` na tabela, sem deploy.
 4. Confira a tabela de preços vigente e ajuste as variáveis `OPENAI_*_USD_PER_M` se estiver diferente. Elas não afetam a cobrança do cliente, só o cálculo de margem no painel.
 
 ### 4. PIX

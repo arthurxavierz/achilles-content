@@ -97,6 +97,14 @@ Presets vivem em `art_presets`. Cada um é um bloco de prompt fixo e específico
 
 Para adicionar um preset, insira em `art_presets` — ele aparece no estúdio e no Brand Brain sem deploy.
 
+### Qual modelo roda cada faixa
+
+`pricing.openai_model` define o motor de cada faixa de preço, então Padrão e Assinatura não precisam usar o mesmo. Hoje: `gpt-image-2.5-flare` para Padrão (rápido, do dia a dia) e `gpt-image-2.5-sunburst` para Assinatura (precisão e fidelidade à referência). Trocar é um `update`, sem deploy — e o modelo usado fica gravado em `generations.openai_model`, para o histórico não mentir depois de uma troca.
+
+A família 2.5 aceita dimensão customizada (lados múltiplos de 16, proporção entre 1:3 e 3:1, área entre 655.360 e 8.294.400 pixels), por isso o feed sai em **4:5 nativo** (1024x1280) e o story em **9:16 nativo** (1152x2048). Não há recorte em lugar nenhum. `validSize` recusa qualquer valor fora dessas regras e cai no padrão, para uma configuração errada em `app_settings` não derrubar a geração.
+
+`input_fidelity` só existe na família `gpt-image-1`. Mandar esse parâmetro para um modelo 2.5 derruba a chamada, então `supportsInputFidelity` decide na hora do envio.
+
 ### Referências de imagem
 
 Descrição em texto não reproduz mascote, motivo gráfico nem tratamento de luz específico. Por isso o Brand Brain aceita até seis imagens reais da marca, e as duas primeiras vão anexadas a **toda** arte gerada, via `/images/edits`. O texto continua valendo para as regras; a imagem passa a valer para o look.
@@ -157,6 +165,7 @@ Estão documentadas uma a uma em `.env.example`. As que costumam causar problema
 | `supabase/migration-v6.sql` | presets de marca gráfica e elementos recorrentes |
 | `supabase/migration-v7.sql` | imagens de referência da marca e app_settings |
 | `supabase/migration-v8.sql` | formato das peças e área de segurança do recorte |
+| `supabase/migration-v9.sql` | modelo de imagem por faixa e formato 4:5 nativo |
 | `netlify/functions/_shared.js` | catálogo, custo, despacho e estorno |
 | `netlify/functions/_billing.js` | aplicação de pagamento aprovado |
 | `netlify/functions/_pix.js` | gerador de BR Code |

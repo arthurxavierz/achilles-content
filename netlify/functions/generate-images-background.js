@@ -1,4 +1,4 @@
-import { imageCostUsd,imageSize,loadBrandReferences,loadCatalog,loadSettings,refundUnproducedImages,service,textCostUsd } from './_shared.js'
+import { imageCostUsd,imageModelOf,imageSize,loadBrandReferences,loadCatalog,loadSettings,refundUnproducedImages,service,supportsInputFidelity,textCostUsd } from './_shared.js'
 
 // Estagio 1. O modelo de texto vira diretor de arte: le a marca e a copy e
 // devolve uma direcao fechada. Sem esta etapa o prompt de imagem vira uma
@@ -104,8 +104,7 @@ Nada de colagem, moldura, borda decorativa ou estética genérica de banco de im
 // Referencias anexadas ao pedido. Sao de duas origens e as duas importam:
 // as da marca (mascote, tratamento visual) e a primeira arte da geracao
 // (consistencia entre os slides do carrossel).
-async function callImageApi({prompt,size,quality,references,fidelity}){
-  const model=process.env.OPENAI_IMAGE_MODEL
+async function callImageApi({model,prompt,size,quality,references,fidelity}){
   const list=(references||[]).filter(Boolean)
   if(!list.length){
     const res=await fetch('https://api.openai.com/v1/images/generations',{method:'POST',headers:{authorization:`Bearer ${process.env.OPENAI_API_KEY}`,'content-type':'application/json'},body:JSON.stringify({model,prompt,size,quality,output_format:'png'})})
@@ -122,7 +121,9 @@ Não copie a composição nem o assunto: construa a cena descrita acima com o vi
 Não reproduza nenhum texto que apareça nas referências.`)
   form.append('size',size)
   form.append('quality',quality)
-  form.append('input_fidelity',fidelity==='low'?'low':'high')
+  // input_fidelity so existe na familia gpt-image-1. No 2.5 a fidelidade a
+  // referencia ja e do modelo, e mandar o parametro derruba a chamada.
+  if(supportsInputFidelity(model)) form.append('input_fidelity',fidelity==='low'?'low':'high')
   for(const ref of list) form.append('image[]',new Blob([ref.bytes],{type:ref.type||'image/png'}),ref.name||'referencia.png')
   const res=await fetch('https://api.openai.com/v1/images/edits',{method:'POST',headers:{authorization:`Bearer ${process.env.OPENAI_API_KEY}`},body:form})
   if(!res.ok)throw new Error(`OpenAI imagem ${res.status}`)
@@ -156,6 +157,7 @@ export async function handler(event){
     const settings=await loadSettings(svc)
     const size=imageSize(g.format,settings)
     const quality=j.image_quality||g.image_quality||'medium'
+    const model=j.openai_model||g.openai_model||imageModelOf(null,settings)
     const safeCrop=g.format==='story'?'':(settings.feed_safe_crop||'')
 
     // Referencias da marca: valem para toda peca, inclusive a primeira.
@@ -176,7 +178,7 @@ export async function handler(event){
 
     for(let i=j.done_count;i<j.total_count;i++){
       const prompt=buildImagePrompt({g,brand,preset,direction,index:i,safeCrop})
-      const payload=await callImageApi({prompt,size,quality,fidelity,references:[...brandRefs,previous]})
+      const payload=await callImageApi({model,prompt,size,quality,fidelity,references:[...brandRefs,previous]})
       const b64=payload.data?.[0]?.b64_json
       if(!b64)throw new Error(`Imagem ${i+1} sem conteúdo`)
       const bytes=Buffer.from(b64,'base64')
@@ -188,7 +190,7 @@ export async function handler(event){
       if(upErr)throw upErr
 
       const cost=imageCostUsd(payload.usage,size,quality)
-      await svc.from('generation_images').upsert({generation_id:g.id,user_id:g.user_id,position:i+1,storage_path:path,cost_usd:cost,quality,prompt:prompt.slice(0,4000)},{onConflict:'generation_id,position'})
+      await svc.from('generation_images').upsert({generation_id:g.id,user_id:g.user_id,position:i+1,storage_path:path,cost_usd:cost,quality,openai_model:model,prompt:prompt.slice(0,4000)},{onConflict:'generation_id,position'})
       await svc.rpc('add_generation_cost',{p_generation_id:g.id,p_cost:cost})
       await svc.from('generation_jobs').update({done_count:i+1,updated_at:new Date().toISOString()}).eq('id',j.id)
     }
