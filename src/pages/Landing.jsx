@@ -5,8 +5,11 @@ import { DEFAULT_PACKS, DEFAULT_PLANS, DEFAULT_PRESETS, DEFAULT_PRICING, FORMATS
 import { DEMO_MODE } from '../lib/config'
 import { normalizePacks, normalizePlans } from '../lib/normalize'
 import { money, number } from '../lib/format'
+import { CONTACT, waLink } from '../lib/contact'
+import Brandmark from '../components/Brandmark'
+import SiteFooter from '../components/SiteFooter'
 
-const wa = 'https://wa.me/5541988491690?text=Ol%C3%A1%2C%20quero%20conhecer%20o%20Achilles%20Content.'
+const wa = waLink('Olá, quero conhecer o Achilles Content.')
 
 const faqs = [
   ['O que é um crédito?', 'Crédito é a unidade usada para gerar copies e imagens dentro do Achilles Content. Cada operação tem um custo fixo e transparente, exibido antes de você confirmar.'],
@@ -40,7 +43,7 @@ export default function Landing() {
   }, [])
 
   return <div className="landing">
-    <header className="public-nav"><Link to="/" className="logo"><span className="brand-mark">A</span><div><strong>ACHILLES</strong><small>CONTENT</small></div></Link><nav><a href="#como">Como funciona</a><a href="#creditos">Créditos</a><a href="#planos">Planos</a><Link to="/entrar" className="nav-login">Entrar</Link></nav></header>
+    <header className="public-nav"><Link to="/" className="logo"><Brandmark/><div><strong>ACHILLES</strong><small>CONTENT</small></div></Link><nav><a href="#como">Como funciona</a><a href="#creditos">Créditos</a><a href="#planos">Planos</a><Link to="/entrar" className="nav-login">Entrar</Link></nav></header>
 
     <section className="hero">
       <div>
@@ -117,10 +120,10 @@ export default function Landing() {
     <section className="final-cta">
       <span className="eyebrow">ACHILLES CONTENT</span>
       <h2>PRONTO PARA COLOCAR SUA MARCA NO FLUXO?</h2>
-      <p>Comece com {FREE_SIGNUP_CREDITS} créditos de cortesia ou fale com a equipe pelo WhatsApp 41 98849-1690.</p>
+      <p>Comece com {FREE_SIGNUP_CREDITS} créditos de cortesia ou fale com a equipe pelo WhatsApp {CONTACT.phoneLabel}.</p>
       <div><Link className="btn primary" to="/entrar">CRIAR MINHA CONTA</Link><a className="btn secondary" href={wa}>FALAR NO WHATSAPP</a></div>
     </section>
 
-    <footer><div className="logo"><span className="brand-mark">A</span><div><strong>ACHILLES</strong><small>CONTENT</small></div></div><span>41 98849-1690</span><div><Link to="/privacidade">Privacidade</Link><Link to="/termos">Termos de uso</Link></div></footer>
+    <SiteFooter/>
   </div>
 }

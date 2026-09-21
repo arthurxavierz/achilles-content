@@ -12,10 +12,11 @@ import AdminHome from './pages/admin/AdminHome'
 import ClientDetail from './pages/admin/ClientDetail'
 import AppLayout from './components/AppLayout'
 import StaticPage from './pages/StaticPage'
+import Brandmark from './components/Brandmark'
 
 function Protected({ admin = false, children }) {
   const { user, profile, loading } = useAuth()
-  if (loading) return <div className="page-loading"><div className="brand-mark">A</div><span /></div>
+  if (loading) return <div className="page-loading"><Brandmark size={46}/><span /></div>
   if (!user) return <Navigate to="/entrar" replace />
   if (!profile?.active) return <main className="fatal"><h1>CONTA DESATIVADA.</h1><p>Fale com a Achilles Media para revisar seu acesso.</p></main>
   if (admin && profile?.role !== 'admin') return <Navigate to="/app" replace />

@@ -111,3 +111,95 @@ figure.art-card img{height:auto;object-fit:contain}
 .switch i{width:21px;height:21px;border-radius:50%;background:#5a5a5a;display:block;transition:.2s ease}
 .switch.on{background:#2a2318;border-color:var(--gold);justify-content:flex-end}
 .switch.on i{background:var(--gold)}
+
+/* ===== V11. Tipografia, espaçamento, marca e rodapés. ===== */
+
+/* A CAUSA DO ENCAVALAMENTO: Anton tem acento alto, e h1 estava com
+   line-height .94. O Ú de "ÚLTIMOS" e o Ú de "CONTEÚDO" estouravam a caixa
+   de linha e invadiam o texto de cima. Abaixo de 1.02 o problema volta. */
+h1{line-height:1.04}
+h2{line-height:1.08}
+h3{line-height:1.14}
+h1,h2,h3{overflow-wrap:anywhere;text-wrap:balance}
+/* O eyebrow era inline e colava no título logo abaixo. */
+.eyebrow{display:block;line-height:1.5;margin-bottom:7px}
+.page-title h1,.panel-head h2,.section-head h2,.studio-card h2{margin-top:2px}
+.studio-card h2{margin-bottom:26px}
+/* Números grandes em Anton: o shorthand font: zera o line-height e corta o acento. */
+.metric strong,.billing-hero strong,.client-credit strong,.pack-grid strong,
+.price,.brand-health h2,.cost-chip strong,.step-grid b,.slide-read strong,
+.art-card.ready strong,.thumb,.mock-screen strong{line-height:1.12}
+.metric strong{margin:9px 0}
+
+/* Formulários: o botão de salvar encostava no último painel. */
+.brand-form{display:flex;flex-direction:column}
+.brand-form>.btn,.studio-card>.btn{align-self:flex-start;margin-top:10px}
+.brand-form .form-message,.studio-card .form-message{margin-bottom:12px}
+.panel:last-of-type{margin-bottom:20px}
+label{min-width:0}
+input,textarea,select{max-width:100%}
+.form-grid{align-items:start}
+
+/* Botões: sem quebra no meio da palavra e sem encolher o ícone. */
+.btn{white-space:nowrap;line-height:1.2}
+.btn svg,.small-btn svg{flex-shrink:0}
+.small-btn{white-space:nowrap}
+.action-row{flex-wrap:wrap}
+.tabs button,.format-tabs button,.quality-grid button,.preset-grid button{line-height:1.35}
+.admin-table a{gap:14px;align-items:center}
+.admin-table strong{display:flex;align-items:center;flex-wrap:wrap;gap:4px}
+.page-title{gap:20px;flex-wrap:wrap}
+.panel-head{gap:16px;flex-wrap:wrap}
+
+/* A marca agora é a logo da Achilles, não mais a letra desenhada em CSS. */
+.brand-mark{display:grid;place-items:center;border-radius:10px;background:linear-gradient(135deg,#f2d98f,var(--gold));flex-shrink:0;padding:18%}
+.brand-mark img{width:100%;height:100%;object-fit:contain;filter:brightness(0) saturate(100%)}
+.mark-plain{width:auto;object-fit:contain;display:block}
+.logo{min-width:0}
+
+/* ---- Rodapé público ---- */
+.site-footer{max-width:1320px;margin:60px auto 0;padding:56px 28px 40px;border-top:1px solid #222;position:relative}
+.footer-grid{display:grid;grid-template-columns:1.6fr 1fr 1fr 1.3fr;gap:44px}
+.footer-brand p{margin:20px 0 0;font-size:13px;max-width:360px}
+.site-footer nav{display:flex;flex-direction:column;gap:11px;align-items:flex-start;min-width:0}
+.site-footer nav a,.footer-place{display:flex;align-items:center;gap:8px;font-size:13px;color:#a0a0a0}
+.site-footer nav a:hover{color:var(--gold)}
+.site-footer nav svg{flex-shrink:0;color:var(--gold)}
+.footer-contact a,.footer-place{overflow-wrap:anywhere}
+.footer-base{display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap;margin-top:46px;padding-top:24px;border-top:1px solid #1e1e1e}
+.footer-base small{font-size:11px;color:#6f6f6f}
+.footer-legal{display:flex;gap:20px;font-size:12px;color:#8a8a8a}
+.footer-legal a:hover{color:var(--gold)}
+.wa-float{position:fixed;right:22px;bottom:22px;width:56px;height:56px;border-radius:50%;background:#25d366;color:#0b2e17;display:grid;place-items:center;box-shadow:0 12px 30px rgba(0,0,0,.45);z-index:40}
+.wa-float:hover{transform:translateY(-3px)}
+
+/* ---- Rodapé da área logada ---- */
+.app-footer{margin:52px 30px 0;padding-bottom:36px}
+.support-row{display:flex;justify-content:space-between;align-items:center;gap:22px;flex-wrap:wrap;padding:24px;border:1px solid #3b3424;border-radius:18px;background:linear-gradient(140deg,#1a160e,#101112)}
+.support-head{display:flex;align-items:center;gap:14px;min-width:0}
+.support-head svg{color:var(--gold);flex-shrink:0}
+.support-head strong,.support-head span{display:block}
+.support-head span{font-size:11px;color:#8a8a8a;margin-top:4px;line-height:1.5}
+.support-actions{display:flex;gap:10px;flex-wrap:wrap}
+.app-footer-base{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-top:22px;padding-top:18px;border-top:1px solid #1e1e1e}
+.app-footer-base small{font-size:11px;color:#6f6f6f}
+.app-footer-links{display:flex;gap:18px;flex-wrap:wrap}
+.app-footer-links a{display:flex;align-items:center;gap:6px;font-size:11px;color:#8a8a8a}
+.app-footer-links a:hover{color:var(--gold)}
+.app-footer-links svg{color:var(--gold)}
+
+@media(max-width:1050px){
+  .footer-grid{grid-template-columns:1fr 1fr;gap:34px}
+  .footer-brand{grid-column:1/-1}
+}
+@media(max-width:760px){
+  .footer-grid{grid-template-columns:1fr;gap:30px}
+  .site-footer{padding:44px 18px 32px;margin-top:40px}
+  .footer-base{flex-direction:column;align-items:flex-start}
+  .app-footer{margin:40px 16px 0}
+  .support-row{flex-direction:column;align-items:flex-start}
+  .support-actions{width:100%}
+  .support-actions .btn{flex:1;justify-content:center}
+  .wa-float{right:16px;bottom:16px;width:50px;height:50px}
+  .btn{white-space:normal}
+}
