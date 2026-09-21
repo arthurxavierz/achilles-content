@@ -203,3 +203,35 @@ input,textarea,select{max-width:100%}
   .wa-float{right:16px;bottom:16px;width:50px;height:50px}
   .btn{white-space:normal}
 }
+
+/* ---- Tabela de contas do admin ---- */
+.account-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.account-summary>div{padding:16px;border:1px solid #292929;border-radius:12px;background:#0b0b0b}
+.account-summary small{display:block;font-size:9px;letter-spacing:1.6px;color:#888}
+.account-summary strong{display:block;font:26px Anton;color:var(--gold);line-height:1.12;margin-top:6px}
+.account-table{display:grid}
+.account-head,.account-table a{display:grid;grid-template-columns:2.2fr 1fr 1fr 1fr .7fr;gap:14px;align-items:center;padding:14px;border-bottom:1px solid #252525}
+.account-head{font-size:9px;letter-spacing:1.6px;color:#777;text-transform:uppercase;border-bottom-color:#333}
+.account-table a:hover{background:#151515}
+.account-table strong,.account-table span{display:block;min-width:0}
+.account-table span{font-size:10px;color:#777;margin-top:4px;overflow-wrap:anywhere}
+.account-credits strong{color:var(--gold)}
+.account-table i{font-style:normal;font-size:10px}
+.account-who strong{display:flex;align-items:center;flex-wrap:wrap;gap:5px}
+
+/* ---- Cadastro ---- */
+.auth-perks{list-style:none;padding:0;margin:26px 0 0;display:grid;gap:11px}
+.auth-perks li{display:flex;align-items:center;gap:10px;font-size:13px;color:#b9b9b9}
+.auth-perks svg{color:var(--gold);flex-shrink:0}
+.auth-switch{font-size:12px;color:#8a8a8a;margin:4px 0 0}
+.auth-switch a{color:var(--gold);font-weight:700}
+.auth-terms{font-size:11px;color:#6f6f6f;line-height:1.6;margin:0}
+.auth-terms a{color:#9a9a9a;text-decoration:underline}
+.field-hint{font-size:10px;color:#6f6f6f}
+
+@media(max-width:1050px){.account-summary{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:860px){
+  .account-head{display:none}
+  .account-table a{grid-template-columns:1fr 1fr;gap:10px}
+  .account-who{grid-column:1/-1}
+}

@@ -1,10 +1,13 @@
-import { FORMATS,assertSpendCeiling,body,copySlug,imageCount,json,loadCatalog,method,priceOf,rateLimit,requireUser,safeError,text,textCostUsd } from './_shared.js'
+import { FORMATS,assertSpendCeiling,body,copySlug,imageCount,json,loadCatalog,loadSettings,method,priceOf,rateLimit,requireUser,safeError,text,textCostUsd } from './_shared.js'
 
 const schema={type:'object',additionalProperties:false,properties:{headline:{type:'string'},slides:{type:'array',maxItems:20,items:{type:'object',additionalProperties:false,properties:{title:{type:'string'},subtitle:{type:'string'}},required:['title','subtitle']}},caption:{type:'string'},hashtags:{type:'array',maxItems:30,items:{type:'string'}}},required:['headline','slides','caption','hashtags']}
 
 const field=(label,value)=>value?`${label}: ${value}`:null
 
-function buildPrompt({theme,format,brand}){
+// O estilo de escrita e sugestao da plataforma, nao lei. Se a marca
+// escreveu as proprias regras, elas substituem o padrao por inteiro.
+function buildPrompt({theme,format,brand,defaultStyle}){
+  const style=String(brand?.copy_rules||'').trim() || defaultStyle || ''
   const slides=format==='carousel'?'exatamente 5 slides encadeados, cada um avançando o raciocínio do anterior':'exatamente 1 slide'
   const marca=[
     field('Marca',brand?.brand_name),
@@ -31,12 +34,8 @@ FORMATO
 ${format}. Gere ${slides}.
 
 REGRAS DE ESCRITA
-Headline curta, específica e sem promessa vazia. Nada de emoji, nada de travessão longo, nada de hashtag dentro do corpo do texto.
-Cada título de slide cabe em duas linhas na tela de um celular.
-O subtítulo sustenta o título com um argumento concreto, não com adjetivo.
-A legenda tem de três a cinco frases, começa pelo problema do leitor e fecha com o CTA da marca.
-As hashtags são de quatro a oito, minúsculas, específicas do segmento, sem repetir palavra da headline.
-Respeite integralmente os guardrails e nunca use os termos proibidos.`
+${style}
+Respeite integralmente os guardrails da marca e nunca use os termos proibidos.`
 }
 
 export async function handler(event){
@@ -67,7 +66,8 @@ export async function handler(event){
 
     try{
       const {data:brand}=await auth.service.from('brand_profiles').select('*').eq('user_id',auth.user.id).maybeSingle()
-      const res=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{authorization:`Bearer ${process.env.OPENAI_API_KEY}`,'content-type':'application/json'},body:JSON.stringify({model:process.env.OPENAI_TEXT_MODEL,input:buildPrompt({theme,format,brand}),text:{format:{type:'json_schema',name:'content_copy',strict:true,schema}}})})
+      const settings=await loadSettings(auth.service)
+      const res=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{authorization:`Bearer ${process.env.OPENAI_API_KEY}`,'content-type':'application/json'},body:JSON.stringify({model:process.env.OPENAI_TEXT_MODEL,input:buildPrompt({theme,format,brand,defaultStyle:settings.copy_style_default}),text:{format:{type:'json_schema',name:'content_copy',strict:true,schema}}})})
       if(!res.ok)throw new Error(`OpenAI ${res.status}`)
       const raw=await res.json()
       const output=raw.output_text||raw.output?.flatMap(x=>x.content||[]).find(x=>x.type==='output_text')?.text

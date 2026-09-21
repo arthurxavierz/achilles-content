@@ -20,6 +20,7 @@ export default function SiteFooter() {
         <a href="#como">Como funciona</a>
         <a href="#creditos">Créditos</a>
         <a href="#planos">Planos</a>
+        <Link to="/criar-conta">Criar conta</Link>
         <Link to="/entrar">Entrar</Link>
       </nav>
 

@@ -125,6 +125,33 @@ Com o modo desligado, a regra antiga volta inteira: nada de texto, e área limpa
 
 ---
 
+## Cadastro e limite de contas
+
+O cliente se cadastra sozinho em `/criar-conta`. A conta nasce confirmada (`email_confirm: true`) de propósito: o atrito fica no pagamento do plano, que é o que o admin valida, não na porta de entrada.
+
+O cadastro **não** usa `supabase.auth.signUp` no navegador — passa pela function `signup`, porque é lá que o limite é aplicado. Por isso o signup por e-mail precisa estar **desligado** no painel do Supabase: ligado, dá para criar conta chamando a API do Supabase direto e furar o limite.
+
+Duas camadas contam contas, ambas em `app_settings`:
+
+- **`signup_max_per_device`** (3): um UUID gerado no navegador e guardado em `localStorage`. Limpar o navegador zera — e tudo bem, é a primeira barreira, não a última.
+- **`signup_max_per_network`** (8): hash de IP + user agent, com o `INTERNAL_JOB_SECRET` como sal. Pega quem limpou o storage. O IP nunca é guardado em claro.
+
+`signup_window_days` (30) é a janela dos dois. `signup_open` fecha a porta sem derrubar o site. A contagem roda em `check_signup_quota`, no banco, para ser atômica: duas abas abertas ao mesmo tempo não furam o limite.
+
+Nada disso impede uma fraude determinada — VPN mais navegador anônimo passa. O objetivo é travar a criação casual de contas para farmar os 200 créditos de cortesia, e esse custo é de centavos por conta.
+
+---
+
+## O que o sistema não decide pelo cliente
+
+A plataforma **sugere** estilo, não impõe. Até a V11 o código carregava opinião como lei: "nada de emoji", "legenda de três a cinco frases", "quatro a oito hashtags", "nada de colagem nem moldura", "nenhum texto na imagem". Nenhum campo do Brand Brain conseguia derrubar isso.
+
+Agora a plataforma tem padrões em `app_settings` (`copy_style_default`, `image_style_default`), e a marca sobrescreve por inteiro em `brand_profiles.copy_rules` e `brand_profiles.image_rules`. Campo vazio usa o padrão; campo preenchido manda.
+
+O único limite que continua de pé é o de conteúdo da própria OpenAI, que se aplica na API dela e não depende deste código.
+
+---
+
 ## Segurança
 
 - **RLS ligada em tudo.** O cliente lê apenas as próprias linhas. `admin_audit_log`, `webhook_events` e `rate_limits` ficam com RLS ligada e nenhuma policy: só a `service_role` enxerga.
@@ -175,6 +202,7 @@ Estão documentadas uma a uma em `.env.example`. As que costumam causar problema
 | `supabase/migration-v8.sql` | formato das peças e área de segurança do recorte |
 | `supabase/migration-v9.sql` | modelo de imagem por faixa e formato 4:5 nativo |
 | `supabase/migration-v10.sql` | texto na arte como escolha, não como regra |
+| `supabase/migration-v11.sql` | guardrails editáveis, cadastro próprio, contas por dispositivo |
 | `netlify/functions/_shared.js` | catálogo, custo, despacho e estorno |
 | `netlify/functions/_billing.js` | aplicação de pagamento aprovado |
 | `netlify/functions/_pix.js` | gerador de BR Code |

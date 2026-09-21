@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react'
-import { AlertTriangle, Check, Copy, Plus, RefreshCw, X } from 'lucide-react'
+import React, { useEffect, useMemo, useState } from 'react'
+import { AlertTriangle, Check, Copy, Plus, RefreshCw, Search, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { DEFAULT_PLANS } from '../../../shared/pricing'
 import { DEMO_MODE } from '../../lib/config'
@@ -19,6 +19,8 @@ export default function AdminHome(){
   const [created,setCreated]=useState(null)
   const [busy,setBusy]=useState(false)
   const [msg,setMsg]=useState('')
+  const [totals,setTotals]=useState({})
+  const [query,setQuery]=useState('')
   const [form,setForm]=useState({full_name:'',email:'',password:'',plan_slug:'pro',initial_credits:200})
 
   const planList = plans?.length ? plans : DEFAULT_PLANS
@@ -26,7 +28,7 @@ export default function AdminHome(){
   async function load(){
     if(DEMO_MODE) return
     const [m,c,q]=await Promise.all([api('admin-metrics'),api('admin-list-clients'),api('admin-list-pending')])
-    setMetrics(m); setClients(c.clients||[]); setQueue(q)
+    setMetrics(m); setClients(c.clients||[]); setTotals(c.totals||{}); setQueue(q)
   }
   useEffect(()=>{ load().catch(e=>setMsg(e.message)) },[])
 
@@ -59,6 +61,12 @@ export default function AdminHome(){
   }
 
   const pending=queue.payments||[]
+
+  const filtered=useMemo(()=>{
+    const q=query.trim().toLowerCase()
+    if(!q) return clients
+    return clients.filter(c=>`${c.full_name||''} ${c.email||''} ${c.plan_name||''}`.toLowerCase().includes(q))
+  },[clients,query])
 
   return <div className="page">
     <div className="page-title"><div><span className="eyebrow">ADMINISTRAÇÃO</span><h1>OPERAÇÃO ACHILLES CONTENT.</h1><p>Clientes, receita, créditos e conciliação em um único painel.</p></div><button className="btn primary" onClick={()=>{setOpen(true);setCreated(null)}}><Plus size={18}/>NOVO CLIENTE</button></div>
@@ -110,13 +118,36 @@ export default function AdminHome(){
     </section>}
 
     <section className="panel">
-      <div className="panel-head"><div><span className="eyebrow">CLIENTES</span><h2>BASE ATIVA E SUPORTE.</h2></div><button className="small-btn" onClick={()=>load().catch(e=>setMsg(e.message))}><RefreshCw size={15}/>ATUALIZAR</button></div>
-      <div className="admin-table">{clients.map(c=><Link to={`/admin/clientes/${c.id}`} key={c.id}>
-        <div><strong>{c.full_name||'Sem nome'}{c.role==='admin'&&<em className="role-tag">ADMIN</em>}</strong><span>{c.email}</span></div>
-        <span>{number(c.credits_plan||0)} plano</span>
-        <b>{number(c.credits||0)} cr</b>
-        <i className={c.active?'on':'off'}>{c.active?'Ativo':'Desativado'}</i>
-      </Link>)}{!clients.length&&<div className="empty">Nenhum cliente cadastrado ainda.</div>}</div>
+      <div className="panel-head">
+        <div><span className="eyebrow">CONTAS</span><h2>TODOS OS CADASTRADOS.</h2></div>
+        <button className="small-btn" onClick={()=>load().catch(e=>setMsg(e.message))}><RefreshCw size={15}/>ATUALIZAR</button>
+      </div>
+
+      <div className="account-summary">
+        <div><small>CONTAS</small><strong>{number(totals.accounts ?? clients.length)}</strong></div>
+        <div><small>ATIVAS</small><strong>{number(totals.active ?? clients.filter(c=>c.active).length)}</strong></div>
+        <div><small>CRÉDITOS EM PODER DELAS</small><strong>{number(totals.credits)}</strong></div>
+        <div><small>GERAÇÕES</small><strong>{number(totals.generations)}</strong></div>
+      </div>
+
+      <div className="filters">
+        <label><Search size={17}/><input placeholder="Buscar por nome, e-mail ou plano" value={query} onChange={e=>setQuery(e.target.value)}/></label>
+      </div>
+
+      <div className="account-table">
+        <div className="account-head"><span>Conta</span><span>Plano</span><span>Saldo</span><span>Entregas</span><span>Status</span></div>
+        {filtered.map(c=><Link to={`/admin/clientes/${c.id}`} key={c.id}>
+          <div className="account-who">
+            <strong>{c.full_name||'Sem nome'}{c.role==='admin'&&<em className="role-tag">ADMIN</em>}</strong>
+            <span>{c.email}</span>
+          </div>
+          <div className="account-plan"><strong>{c.plan_name||'Sem plano'}</strong><span>{c.subscription_status||'avulso'}</span></div>
+          <div className="account-credits"><strong>{number(c.credits||0)}</strong><span>{number(c.credits_plan||0)} plano · {number(c.credits_extra||0)} avulsos</span></div>
+          <div className="account-usage"><strong>{number(c.delivered||0)}</strong><span>{number(c.generations||0)} gerações{c.cost_usd?` · US$ ${Number(c.cost_usd).toFixed(2)}`:''}</span></div>
+          <i className={c.active?'on':'off'}>{c.active?'Ativo':'Desativado'}</i>
+        </Link>)}
+        {!filtered.length&&<div className="empty">{clients.length?'Nenhuma conta encontrada para essa busca.':'Nenhuma conta cadastrada ainda.'}</div>}
+      </div>
     </section>
 
     {open&&<div className="modal-back" onClick={()=>setOpen(false)}><form className="modal" onClick={e=>e.stopPropagation()} onSubmit={create}>

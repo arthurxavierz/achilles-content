@@ -90,7 +90,9 @@ Nenhuma palavra além das citadas acima. Não invente, não traduza, não repita
 Ortografia do português do Brasil, com acentuação correta e sem hifenizar palavra no fim da linha.`
 }
 
-function buildImagePrompt({g,brand,preset,direction,index,safeCrop,renderText}){
+function buildImagePrompt({g,brand,preset,direction,index,safeCrop,renderText,defaultFinish}){
+  // Acabamento e sugestao da plataforma. A marca sobrescreve por inteiro.
+  const finish=String(brand?.image_rules||'').trim() || defaultFinish || 'Acabamento de publicidade, alta definição.'
   const scene=direction.scenes?.[index]||direction.scenes?.[0]||{}
   const slide=g.copy_json?.slides?.[index]||g.copy_json?.slides?.[0]||{}
   // O que a marca declarou vence o que o modelo inferiu.
@@ -126,9 +128,8 @@ ${renderText?'Deixe a faixa superior da peça limpa e de contraste uniforme para
 
 ${textBlock({brand,slide,render:renderText})}
 
-PROIBIÇÕES GERAIS
-Elementos de interface, HUD, painéis, gráficos e circuitos são permitidos e desejáveis quando a identidade da marca os usa, desde que fiquem sem nenhum rótulo escrito: use formas, barras, ícones e linhas no lugar de rótulos.
-Nada de colagem, moldura, borda decorativa ou estética genérica de banco de imagens.`
+ACABAMENTO FINAL
+${finish}`
 }
 
 // Referencias anexadas ao pedido. Sao de duas origens e as duas importam:
@@ -208,7 +209,7 @@ export async function handler(event){
     }
 
     for(let i=j.done_count;i<j.total_count;i++){
-      const prompt=buildImagePrompt({g,brand,preset,direction,index:i,safeCrop,renderText})
+      const prompt=buildImagePrompt({g,brand,preset,direction,index:i,safeCrop,renderText,defaultFinish:settings.image_style_default})
       const payload=await callImageApi({model,prompt,size,quality,fidelity,references:[...brandRefs,previous]})
       const b64=payload.data?.[0]?.b64_json
       if(!b64)throw new Error(`Imagem ${i+1} sem conteúdo`)

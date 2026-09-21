@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import Landing from './pages/Landing'
 import Login from './pages/Login'
+import Signup from './pages/Signup'
 import Dashboard from './pages/Dashboard'
 import Create from './pages/Create'
 import History from './pages/History'
@@ -27,6 +28,7 @@ export default function App() {
   return <Routes>
     <Route path="/" element={<Landing />} />
     <Route path="/entrar" element={<Login />} />
+    <Route path="/criar-conta" element={<Signup />} />
     <Route path="/privacidade" element={<StaticPage type="privacy" />} />
     <Route path="/termos" element={<StaticPage type="terms" />} />
     <Route path="/app" element={<Protected><AppLayout /></Protected>}>

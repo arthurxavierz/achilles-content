@@ -51,6 +51,7 @@ Oito passos. Faça na ordem.
    - `supabase/migration-v8.sql`
    - `supabase/migration-v9.sql`
    - `supabase/migration-v10.sql`
+   - `supabase/migration-v11.sql`
 
    Todos são idempotentes: pode rodar de novo sem quebrar nada.
 3. Em **Project Settings → API**, copie:
@@ -60,6 +61,8 @@ Oito passos. Faça na ordem.
 
    > A `service_role` ignora todas as regras de segurança do banco. Ela só pode existir nas variáveis de ambiente do Netlify. Nunca no frontend, nunca no Git.
 4. Em **Storage**, confirme que os buckets `generation-assets` e `brand-references` existem e estão **privados**. As migrações já criam assim.
+
+5. Em **Authentication → Providers → Email**, **desmarque "Enable email signups"**. O cadastro público do Achilles Content passa por uma Netlify Function, que é quem aplica o limite de contas por dispositivo. Com o signup direto do Supabase ligado, dá para furar esse limite chamando a API do Supabase pelo navegador.
 
 ### 2. Sua conta de administrador
 

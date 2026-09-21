@@ -50,7 +50,7 @@ export default function Landing() {
         <span className="eyebrow">CONTEÚDO COM IDENTIDADE</span>
         <h1>CONTEÚDO DA SUA MARCA.<br/><em>SEM COMEÇAR DO ZERO.</em></h1>
         <p>Defina sua identidade uma vez. Gere copies e artes alinhadas à sua marca sempre que precisar. Você aprova o texto antes de gastar crédito com imagem.</p>
-        <div className="hero-actions"><Link to="/entrar" className="btn primary">COMEÇAR COM {FREE_SIGNUP_CREDITS} CRÉDITOS<ArrowRight size={18}/></Link><a href={wa} className="btn secondary">FALAR COM A EQUIPE</a></div>
+        <div className="hero-actions"><Link to="/criar-conta" className="btn primary">COMEÇAR COM {FREE_SIGNUP_CREDITS} CRÉDITOS<ArrowRight size={18}/></Link><a href={wa} className="btn secondary">FALAR COM A EQUIPE</a></div>
         <small className="hero-note">Sem cartão. Sem cobrança automática. Você paga por PIX quando decidir continuar.</small>
       </div>
       <div className="hero-mock"><div className="mock-screen"><span>ACHILLES CONTENT</span><strong>Seu próximo conteúdo começa com uma ideia.</strong><div className="mock-field">Digite o tema da publicação</div><button>GERAR COPY</button></div></div>
@@ -104,7 +104,7 @@ export default function Landing() {
           <li>Histórico: {plan.history}</li>
           <li>Suporte: {plan.support||'Prioritário'}</li>
         </ul>
-        <Link to="/entrar" className="btn primary">CONTRATAR</Link>
+        <Link to="/criar-conta" className="btn primary">CONTRATAR</Link>
       </article>)}</div>
       <div className="pack-strip">
         <span className="eyebrow">SEM ASSINAR</span>
@@ -121,7 +121,7 @@ export default function Landing() {
       <span className="eyebrow">ACHILLES CONTENT</span>
       <h2>PRONTO PARA COLOCAR SUA MARCA NO FLUXO?</h2>
       <p>Comece com {FREE_SIGNUP_CREDITS} créditos de cortesia ou fale com a equipe pelo WhatsApp {CONTACT.phoneLabel}.</p>
-      <div><Link className="btn primary" to="/entrar">CRIAR MINHA CONTA</Link><a className="btn secondary" href={wa}>FALAR NO WHATSAPP</a></div>
+      <div><Link className="btn primary" to="/criar-conta">CRIAR MINHA CONTA</Link><a className="btn secondary" href={wa}>FALAR NO WHATSAPP</a></div>
     </section>
 
     <SiteFooter/>

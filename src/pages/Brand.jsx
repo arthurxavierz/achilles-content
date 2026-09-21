@@ -8,7 +8,7 @@ import { uid } from '../lib/format'
 import { useAuth } from '../context/AuthContext'
 import { useBilling } from '../context/BillingContext'
 
-const empty = { brand_name:'', segment:'', audience:'', tone:'Profissional, direto e humano.', primary_color:'#D8AF58', secondary_color:'#111111', typography:'Anton para títulos e Inter para textos', briefing:'', guardrails:'', visual_rules:'', differentiators:'', services:'', default_cta:'', instagram_handle:'', references_text:'', forbidden_terms:'', preset_slug:'editorial', recurring_elements:'', render_text:false, text_style:'' }
+const empty = { brand_name:'', segment:'', audience:'', tone:'Profissional, direto e humano.', primary_color:'#D8AF58', secondary_color:'#111111', typography:'Anton para títulos e Inter para textos', briefing:'', guardrails:'', visual_rules:'', differentiators:'', services:'', default_cta:'', instagram_handle:'', references_text:'', forbidden_terms:'', preset_slug:'editorial', recurring_elements:'', render_text:false, text_style:'', copy_rules:'', image_rules:'' }
 
 // So estes campos vao para a API. Evita mandar id, user_id e timestamps de volta.
 const FIELDS = Object.keys(empty)
@@ -112,6 +112,7 @@ export default function Brand() {
           <label>Diferenciais<textarea value={brand.differentiators} onChange={e=>set('differentiators',e.target.value)}/></label>
           <label>Serviços principais<textarea value={brand.services} onChange={e=>set('services',e.target.value)}/></label>
           <label className="wide">CTA padrão<input value={brand.default_cta} onChange={e=>set('default_cta',e.target.value)}/></label>
+          <label className="wide">Regras de escrita<textarea rows="4" value={brand.copy_rules} onChange={e=>set('copy_rules',e.target.value)} placeholder="Deixe vazio para usar o padrão da Achilles. Preencha para mandar você: tamanho da legenda, quantidade de hashtags, se pode emoji, o que quiser."/><small className="field-hint">O que você escrever aqui substitui por inteiro o estilo padrão da plataforma.</small></label>
         </div>
       </section>
 
@@ -134,6 +135,7 @@ export default function Brand() {
           <label className="wide">Regras visuais<textarea rows="4" value={brand.visual_rules} onChange={e=>set('visual_rules',e.target.value)} placeholder="Fundo escuro, dourado como destaque, composição editorial, muito respiro."/></label>
           <label className="wide">Referências visuais<textarea rows="4" value={brand.references_text} onChange={e=>set('references_text',e.target.value)} placeholder="Descreva ou cole links de perfis e campanhas que representam o padrão que você quer."/></label>
           <label className="wide">Elementos recorrentes<textarea rows="3" value={brand.recurring_elements} onChange={e=>set('recurring_elements',e.target.value)} placeholder="O que aparece em toda peça: mascote, tipo de interface, motivos gráficos, textura de fundo."/></label>
+          <label className="wide">Regras de acabamento da arte<textarea rows="3" value={brand.image_rules} onChange={e=>set('image_rules',e.target.value)} placeholder="Deixe vazio para usar o padrão. Preencha para definir o acabamento: colagem, moldura, textura, o que a sua marca usar."/><small className="field-hint">Substitui por inteiro o acabamento padrão da plataforma.</small></label>
         </div>
 
         <div className="field-head"><span className="eyebrow">TEXTO NA ARTE</span><small>Define o padrão da marca. Cada geração ainda pode escolher diferente.</small></div>
