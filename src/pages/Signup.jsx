@@ -6,7 +6,6 @@ import { DEMO_MODE } from '../lib/config'
 import { api } from '../lib/api'
 import { deviceId } from '../lib/device'
 import { number } from '../lib/format'
-import Brandmark from '../components/Brandmark'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../components/Toast'
 
@@ -38,7 +37,7 @@ export default function Signup() {
 
   return <div className="auth-page">
     <section className="auth-copy">
-      <Link to="/" className="logo"><Brandmark/><div><strong>ACHILLES</strong><small>CONTENT</small></div></Link>
+      <Link to="/" className="auth-wordmark"><img src="/wordmark.png" alt="Achilles"/><small>CONTENT</small></Link>
       <div>
         <span className="eyebrow">COMECE AGORA</span>
         <h1>SUA MARCA.<br/><em>PRONTA PARA PUBLICAR.</em></h1>
