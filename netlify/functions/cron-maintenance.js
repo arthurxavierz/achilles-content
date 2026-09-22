@@ -45,6 +45,25 @@ export async function handler(){
     }
   }catch(error){ console.error('reaper',error) }
 
+  // Copy presa: despacho perdido ou funcao morta sem chegar ao catch.
+  // Sem esta varredura o credito ficava debitado para sempre.
+  try{
+    const {data:cfg}=await svc.from('app_settings').select('value').eq('key','copy_stuck_minutes').maybeSingle()
+    const minutes=Number(cfg?.value||10)
+    const cutoff=new Date(Date.now()-minutes*60000).toISOString()
+    const {data:stuck}=await svc.from('generations')
+      .select('id,user_id,copy_charged_plan,copy_charged_extra,copy_refunded_at')
+      .in('status',['draft','copy_queued']).lt('created_at',cutoff).limit(50)
+    for(const g of stuck||[]){
+      const {data:claimed}=await svc.rpc('claim_copy_refund',{p_generation_id:g.id})
+      if(claimed!==false && (g.copy_charged_plan||g.copy_charged_extra)){
+        await svc.rpc('refund_credits',{p_user_id:g.user_id,p_plan:g.copy_charged_plan||0,p_extra:g.copy_charged_extra||0,p_reason:'Estorno de copy que não foi produzida',p_reference_id:g.id})
+      }
+      await svc.from('generations').update({status:'failed',copy_error:'A copy não foi produzida a tempo. Os créditos foram estornados.'}).eq('id',g.id)
+      result.copies_refunded=(result.copies_refunded||0)+1
+    }
+  }catch(error){ console.error('varredura de copy presa',error) }
+
   console.log(JSON.stringify(result))
   return{statusCode:200,body:JSON.stringify(result)}
 }

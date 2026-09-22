@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import JSZip from 'jszip'
-import { Download, Search, X } from 'lucide-react'
+import { ArrowRight, Download, Search, X } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { DEMO_MODE } from '../lib/config'
 import { supabase } from '../lib/supabase'
 import { api } from '../lib/api'
@@ -8,7 +9,7 @@ import { useAuth } from '../context/AuthContext'
 import { dateTime, number } from '../lib/format'
 import { useToast } from '../components/Toast'
 
-const STATUS={draft:'Rascunho',copy_ready:'Copy pronta',copy_approved:'Copy aprovada',processing:'Gerando artes',images_ready:'Entregue',failed:'Falhou'}
+const STATUS={draft:'Rascunho',copy_queued:'Escrevendo a copy',copy_ready:'Copy pronta',copy_approved:'Copy aprovada',processing:'Gerando artes',images_ready:'Entregue',failed:'Falhou'}
 
 const demoRows=[
 {id:'d1',theme:'Processos que dependem de uma pessoa',format:'carousel',status:'images_ready',copy_cost:150,image_cost:500,image_quality:'medium',created_at:new Date().toISOString(),copy_json:{headline:'SEU PROCESSO CONTINUA SEM VOCÊ?',caption:'Quando a operação depende de memória, a ausência vira gargalo.',hashtags:['#gestao','#processos']},image_count:5},
@@ -96,6 +97,17 @@ export default function History(){
       {busy&&<div className="empty">Gerando links de acesso às imagens.</div>}
       <div className="thumb-grid">{urls.map((x,i)=><figure key={i}><img src={x.url} alt={`Arte ${x.position}`} loading="lazy"/><button onClick={()=>download(x.url,x.name)}><Download size={16}/>Baixar</button></figure>)}</div>
       {urls.length>0&&<button className="btn primary" onClick={all}><Download size={17}/>BAIXAR TODAS EM ZIP</button>}
+
+      {['copy_ready','copy_approved','processing','failed','copy_queued'].includes(selected.status)&&selected.copy_json&&
+        <div className="resume-box">
+          <strong>{selected.status==='failed'?'Esta geração falhou nas artes.':selected.status==='processing'?'Esta geração ainda está em andamento.':'Esta copy ainda não virou arte.'}</strong>
+          <p>{selected.status==='failed'
+            ? 'Os créditos das artes não entregues já foram estornados. A copy continua paga e aprovada: retome para gerar as artes sem escrever nada de novo.'
+            : selected.status==='processing'
+              ? 'Abra no estúdio para acompanhar o andamento.'
+              : 'Retome no estúdio para aprovar e gerar as artes.'}</p>
+          <Link className="btn primary" to={`/app/criar?geracao=${selected.id}`}>CONTINUAR NO ESTÚDIO<ArrowRight size={17}/></Link>
+        </div>}
     </aside></div>}
   </div>
 }

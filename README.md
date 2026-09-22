@@ -52,6 +52,8 @@ Oito passos. Faça na ordem.
    - `supabase/migration-v9.sql`
    - `supabase/migration-v10.sql`
    - `supabase/migration-v11.sql`
+   - `supabase/migration-v12.sql`
+   - `supabase/migration-v13.sql`
 
    Todos são idempotentes: pode rodar de novo sem quebrar nada.
 3. Em **Project Settings → API**, copie:

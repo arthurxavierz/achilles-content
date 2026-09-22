@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Check, Copy as CopyIcon, Download, Image as ImageIcon, RefreshCw, Sparkles } from 'lucide-react'
 import JSZip from 'jszip'
 import { FORMATS, QUALITIES, copyCredits, formatOf, imageCredits, imagesCredits } from '../../shared/pricing'
 import { DEMO_MODE } from '../lib/config'
 import { api } from '../lib/api'
+import { supabase } from '../lib/supabase'
 import { number, uid } from '../lib/format'
 import { useAuth } from '../context/AuthContext'
 import { useBilling } from '../context/BillingContext'
@@ -33,12 +35,54 @@ export default function Create() {
   const [job,setJob]=useState(null)
   const [images,setImages]=useState([])
   const [error,setError]=useState('')
+  const [params,setParams]=useSearchParams()
+  const [resuming,setResuming]=useState(false)
+  const [copyWait,setCopyWait]=useState(false)
 
   // O aviso inline fica no contexto da etapa; o toast garante que o cliente
   // veja o retorno mesmo com o formulario rolado.
   const fail = m => { setError(m); notify.error(m) }
 
   useEffect(()=>{ if(!preset && presets?.length) setPreset(presets[0].slug) },[presets])
+
+  // Retoma uma geração existente. Sem isto, sair da página perdia a copy:
+  // ela ficava paga no histórico e sem nenhuma forma de virar arte.
+  useEffect(()=>{
+    const id=params.get('geracao')
+    if(DEMO_MODE||!id||id===generationId) return
+    setResuming(true)
+    ;(async()=>{
+      try{
+        const {data:g,error:gErr}=await supabase.from('generations').select('*').eq('id',id).maybeSingle()
+        if(gErr||!g) throw new Error('Geração não encontrada.')
+        setGenerationId(g.id)
+        setFormat(g.format)
+        setTheme(g.theme||'')
+        if(g.copy_json) setCopy(g.copy_json)
+        if(g.preset_slug) setPreset(g.preset_slug)
+        if(g.image_quality) setQuality(g.image_quality==='high'?'signature':'standard')
+
+        if(g.status==='images_ready'){
+          setJob({status:'done',done:formatOf(g.format).imageCount,total:formatOf(g.format).imageCount})
+          setStep(4)
+        }else if(g.status==='processing'){
+          const {data:jb}=await supabase.from('generation_jobs').select('id,status,done_count,total_count,last_error').eq('generation_id',g.id).maybeSingle()
+          if(jb){ setJob({id:jb.id,status:jb.status,done:jb.done_count,total:jb.total_count,error:jb.last_error}); setStep(4) }
+          else setStep(3)
+        }else if(g.status==='failed'){
+          // Copy paga e aprovada continua valendo: volta para a etapa das artes.
+          const {data:jb}=await supabase.from('generation_jobs').select('id,status,done_count,total_count,last_error').eq('generation_id',g.id).maybeSingle()
+          if(g.copy_json){ setStep(3); if(jb?.last_error) setError(jb.last_error) }
+          else { notify.error('Esta geração falhou antes da copy e já foi estornada.'); setStep(1) }
+        }else if(g.status==='copy_queued'||g.status==='draft'){ setCopyWait(true); setStep(1) }
+        else if(g.status==='copy_approved'){ setStep(3) }
+        else if(g.copy_json){ setStep(2) }
+        else setStep(1)
+      }catch(e){ notify.error(e.message) }
+      finally{ setResuming(false); setParams({},{replace:true}) }
+    })()
+  },[params])
+
 
   const spec=formatOf(format)
   const balance=(profile?.credits_plan||0)+(profile?.credits_extra||0)
@@ -54,9 +98,17 @@ export default function Create() {
     if(!canCopy) return fail(`Faltam ${number(costCopy-balance)} créditos para gerar a copy.`)
     setBusy(true); setError('')
     try{
-      if(DEMO_MODE){ await new Promise(r=>setTimeout(r,900)); demoSpend(costCopy); setCopy(demoCopy(format)); setGenerationId(uid()) }
-      else { const out=await api('generate-copy',{method:'POST',body:{theme,format,idempotency_key:uid()}}); setCopy(out.copy); setGenerationId(out.generation_id); await refresh() }
-      setStep(2); notify.success('Copy gerada. Revise antes de aprovar.')
+      if(DEMO_MODE){
+        await new Promise(r=>setTimeout(r,900)); demoSpend(costCopy)
+        setCopy(demoCopy(format)); setGenerationId(uid()); setStep(2)
+        notify.success('Copy gerada. Revise antes de aprovar.')
+      } else {
+        const out=await api('generate-copy',{method:'POST',body:{theme,format,idempotency_key:uid()}})
+        setGenerationId(out.generation_id)
+        await refresh()
+        if(out.copy){ setCopy(out.copy); setStep(2); notify.success('Copy gerada. Revise antes de aprovar.') }
+        else { setCopyWait(true); notify.info('Escrevendo a copy. Leva alguns segundos.') }
+      }
     }catch(e){ fail(e.message) } finally { setBusy(false) }
   }
 
@@ -80,6 +132,21 @@ export default function Create() {
       }
     }catch(e){ fail(e.message) } finally { setBusy(false) }
   }
+
+  // A copy virou assincrona, entao o estudio pergunta o andamento dela do
+  // mesmo jeito que ja fazia com as artes.
+  useEffect(()=>{
+    if(DEMO_MODE||!copyWait||!generationId) return
+    const timer=setInterval(async()=>{
+      try{
+        const out=await api(`generation-status?generation_id=${encodeURIComponent(generationId)}`)
+        const g=out.generation
+        if(g?.copy){ setCopy(g.copy); setCopyWait(false); setStep(2); await refresh(); notify.success('Copy gerada. Revise antes de aprovar.') }
+        else if(g?.status==='failed'){ setCopyWait(false); fail(g.error||'Não foi possível gerar a copy. Os créditos foram estornados.'); await refresh() }
+      }catch{}
+    },2500)
+    return ()=>clearInterval(timer)
+  },[copyWait,generationId])
 
   // Enquanto o job roda, o painel pergunta o andamento. Ao terminar, busca as
   // URLs assinadas: o bucket e privado, o link vale uma hora.
@@ -133,6 +200,7 @@ export default function Create() {
 
   return <div className="page">
     <div className="page-title"><div><span className="eyebrow">ESTÚDIO</span><h1>DA IDEIA À ARTE.</h1><p>Copy primeiro. Aprovação depois. Imagem só quando estiver pronta para seguir.</p></div><div className="cost-chip"><span>SALDO</span><strong>{number(balance)}</strong></div></div>
+    {resuming&&<div className="form-message">Abrindo a geração do histórico.</div>}
     <div className="studio-steps">{['Briefing','Copy','Aprovação','Artes'].map((x,i)=><div className={step>=i+1?'active':''} key={x}><b>{i+1}</b><span>{x}</span></div>)}</div>
 
     {step===1&&<section className="panel studio-card">
@@ -158,7 +226,8 @@ export default function Create() {
         <div><span>Total da entrega</span><strong>{number(costTotal)}</strong></div>
       </div>
       {error&&<div className="form-message error">{error}</div>}
-      <button className="btn primary" disabled={busy} onClick={generateCopy}>{busy?<RefreshCw className="spin"/>:'GERAR COPY'}</button>
+      {copyWait&&<div className="form-message"><RefreshCw size={15} className="spin"/> Escrevendo a copy. Pode fechar esta página: a geração fica no histórico e você retoma de lá.</div>}
+      <button className="btn primary" disabled={busy||copyWait} onClick={generateCopy}>{busy||copyWait?<RefreshCw className="spin"/>:'GERAR COPY'}</button>
     </section>}
 
     {step===2&&copy&&<section className="panel studio-card">

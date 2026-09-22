@@ -145,6 +145,17 @@ export async function dispatchJob(jobId){
   }finally{ clearTimeout(timer) }
 }
 
+export async function dispatchCopy(generationId){
+  const target=`${process.env.APP_URL}/.netlify/functions/generate-copy-background`
+  const controller=new AbortController()
+  const timer=setTimeout(()=>controller.abort(),8000)
+  try{
+    await fetch(target,{method:'POST',signal:controller.signal,headers:{'content-type':'application/json','x-job-secret':process.env.INTERNAL_JOB_SECRET||''},body:JSON.stringify({generation_id:generationId})})
+  }catch(error){
+    console.error('despacho da copy falhou, cron-maintenance recolhe',generationId,error?.message)
+  }finally{ clearTimeout(timer) }
+}
+
 // Estorna somente as pecas que nao chegaram ao cliente. Imagem entregue ja
 // custou dinheiro na OpenAI e nao volta para o saldo.
 export async function refundUnproducedImages(svc,job,generation,reason){

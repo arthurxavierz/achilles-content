@@ -2287,3 +2287,59 @@ body{
   .charge-preview.three{grid-template-columns:1fr 1fr}
   .charge-preview.three div:last-child{grid-column:1/-1}
 }
+
+/* ===== V18. Refeito sobre o redesenho: hero de tela cheia, títulos em
+   caixa alta e respiro mínimo entre título e conteúdo. ===== */
+
+/* HERO OCUPA A TELA. Era min-height fixo de 900px, que sobra em notebook
+   baixo e falta em monitor grande. svh desconta a barra do navegador no
+   celular, coisa que vh não faz. */
+.landing-v15 .campaign-hero,
+.landing-v15 .campaign-hero-inner{min-height:100vh;min-height:100svh}
+.landing-v15 .campaign-hero-inner{padding:132px 24px 96px}
+/* Mais ouro: a hero precisa se separar do creme do resto da página. */
+.landing-v15 .campaign-hero{
+  background:
+    radial-gradient(circle at 50% 46%,rgba(255,255,255,.94) 0 21%,rgba(255,255,255,.52) 40%,transparent 66%),
+    radial-gradient(circle at 18% 18%,rgba(234,217,173,.8),transparent 34%),
+    radial-gradient(circle at 84% 70%,rgba(201,154,50,.34),transparent 38%),
+    radial-gradient(ellipse 120% 70% at 50% 108%,rgba(157,112,23,.16),transparent 60%),
+    linear-gradient(175deg,#fdf8ec 0%,#fbf6ea 52%,#fbfaf7 100%)}
+.landing-v15 .hero-canvas{opacity:1}
+
+/* TÍTULOS EM CAIXA ALTA. O espaço do acento vem de padding-top e não de
+   line-height: subir a entrelinha afastaria as linhas e tiraria o peso.
+   Funciona porque maiúscula não tem descendente, então a segunda linha
+   não invade a primeira. */
+.landing-v15 h1,.landing-v15 h2,.landing-v15 h3{text-transform:uppercase;letter-spacing:-.4px}
+.landing-v15 h1{padding-top:.09em}
+.landing-v15 h2{padding-top:.09em}
+.landing-v15 h3{padding-top:.06em}
+.landing-v15 .price,.landing-v15 .hero-ledger{text-transform:none}
+
+/* RESPIRO. O redesenho zerou a margem do título do estúdio, e o primeiro
+   grupo de cartões ficava colado nele. */
+.shell .studio-card h2{margin-bottom:24px}
+.shell .studio-card .eyebrow{margin-bottom:9px}
+.shell .field-head{margin:34px 0 15px}
+.shell .panel-head{margin-bottom:24px}
+.shell .studio-card label+.field-head{margin-top:30px}
+/* Mesmo respiro nos blocos do Brand Brain e do admin. */
+.shell .panel-head h2,.shell .studio-card h2{margin-top:3px}
+.shell .diag-grid,.shell .account-summary{margin-top:16px}
+
+@media(max-width:900px){
+  .landing-v15 .campaign-hero-inner{padding:104px 18px 72px}
+  .shell .studio-card h2{margin-bottom:20px}
+  .shell .field-head{margin:28px 0 13px}
+}
+@media(max-height:700px) and (max-width:900px){
+  /* Tela baixa: a hero não pode obrigar a rolar para ver o botão. */
+  .landing-v15 .campaign-hero-inner{padding:88px 18px 58px}
+  .landing-v15 .hero-ledger{display:none}
+}
+/* Retomada de geração a partir do histórico. */
+.resume-box{margin-top:20px;padding:18px;border:1px solid var(--gold-pale,#ead9ad);border-radius:14px;background:var(--paper-warm,#f7f2e8)}
+.resume-box strong{display:block;font-size:14px;color:var(--ink,#17150f)}
+.resume-box p{margin:8px 0 14px;font-size:12px;line-height:1.6;color:var(--muted,#69645a)}
+.resume-box .btn{width:100%;justify-content:center}

@@ -13,6 +13,9 @@
 [functions."generate-images-background"]
   included_files = []
 
+[functions."generate-copy-background"]
+  included_files = []
+
 # Renova ciclos de assinatura e concede os creditos do novo periodo.
 [functions."cron-renew-subscriptions"]
   schedule = "0 8 * * *"
