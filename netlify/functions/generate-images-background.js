@@ -158,9 +158,10 @@ Não copie o texto que aparece nas referências: a peça tem o texto próprio de
   // referencia ja e do modelo, e mandar o parametro derruba a chamada.
   if(supportsInputFidelity(model)) form.append('input_fidelity',fidelity==='low'?'low':'high')
   for(const ref of list) form.append('image[]',new Blob([ref.bytes],{type:ref.type||'image/png'}),ref.name||'referencia.png')
+  const kb=Math.round(list.reduce((n,r)=>n+(r.bytes?.length||0),0)/1024)
   return openaiFetch('https://api.openai.com/v1/images/edits',
     {method:'POST',headers:{authorization:`Bearer ${process.env.OPENAI_API_KEY}`},body:form},
-    {label:`imagem-edits ${model} ${size} ${quality} refs=${list.length}`,timeoutMs:timeouts.image,retries:timeouts.retries})
+    {label:`imagem-edits ${model} ${size} ${quality} refs=${list.length} anexo=${kb}KB`,timeoutMs:timeouts.image,retries:timeouts.retries})
 }
 
 export async function handler(event){

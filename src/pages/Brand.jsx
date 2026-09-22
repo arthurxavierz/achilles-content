@@ -5,6 +5,7 @@ import { DEMO_MODE } from '../lib/config'
 import { supabase } from '../lib/supabase'
 import { api } from '../lib/api'
 import { uid } from '../lib/format'
+import { shrinkImage } from '../lib/shrink'
 import { useAuth } from '../context/AuthContext'
 import { useBilling } from '../context/BillingContext'
 import { useToast } from '../components/Toast'
@@ -55,15 +56,18 @@ export default function Brand() {
     setUpBusy(true); setMsg('')
     try{
       let position = refs.length
-      for (const file of files){
-        if (!/^image\/(png|jpeg|webp)$/.test(file.type)) throw new Error('Use PNG, JPG ou WEBP.')
-        if (file.size > 8 * 1024 * 1024) throw new Error('Cada imagem precisa ter no máximo 8 MB.')
+      for (const raw of files){
+        if (!/^image\/(png|jpeg|webp)$/.test(raw.type)) throw new Error('Use PNG, JPG ou WEBP.')
+        if (raw.size > 16 * 1024 * 1024) throw new Error('Cada imagem precisa ter no máximo 16 MB.')
+        // Reduz antes de subir: a referência vai anexada a cada arte gerada,
+        // então arquivo grande aqui vira upload grande em toda geração.
+        const file = await shrinkImage(raw)
         const ext = file.type.split('/')[1].replace('jpeg','jpg')
         const path = `${user.id}/${uid()}.${ext}`
         const { error: upErr } = await supabase.storage.from('brand-references').upload(path, file, { contentType: file.type })
         if (upErr) throw upErr
         position += 1
-        const { error: rowErr } = await supabase.from('brand_reference_images').insert({ user_id: user.id, storage_path: path, label: file.name.slice(0,120), position })
+        const { error: rowErr } = await supabase.from('brand_reference_images').insert({ user_id: user.id, storage_path: path, label: raw.name.slice(0,120), position })
         if (rowErr) throw rowErr
       }
       await loadRefs()

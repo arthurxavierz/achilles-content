@@ -322,3 +322,16 @@ input,textarea,select{max-width:100%}
 }
 /* Detalhe tecnico da falha, para o admin diagnosticar sem abrir o log. */
 .error-detail{display:block;margin-top:8px;padding:9px 10px;border:1px solid #2c2c2c;border-radius:8px;background:#0a0a0a;color:#8a8a8a;font-size:9px;line-height:1.6;overflow-wrap:anywhere;max-height:88px;overflow:auto}
+/* Painel de diagnóstico da geração. */
+.diag-grid{display:grid;gap:8px;margin-top:14px}
+.diag-grid>div{padding:14px;border:1px solid #292929;border-radius:12px;background:#0b0b0b}
+.diag-grid>div.ok{border-color:#3d5a3d}
+.diag-grid>div.no{border-color:#6d2727}
+.diag-grid strong{display:flex;align-items:center;gap:8px;font-size:13px;overflow-wrap:anywhere}
+.diag-grid>div.ok strong svg{color:#8fd08f}
+.diag-grid>div.no strong svg{color:#e5a1a1}
+.diag-grid span{display:block;font-size:11px;color:#777;margin-top:5px}
+.diag-grid em{display:block;font-style:normal;font-size:12px;color:#e5a1a1;margin-top:7px}
+.diag-config{display:flex;flex-wrap:wrap;gap:7px;margin-top:14px}
+.diag-config span{font-size:10px;color:#9a9a9a;padding:7px 10px;border:1px solid #262626;border-radius:8px;background:#0a0a0a;overflow-wrap:anywhere}
+.diag-config i{font-style:normal;color:var(--gold);margin-right:6px}

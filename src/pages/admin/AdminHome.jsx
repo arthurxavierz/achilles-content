@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, Check, Copy, Plus, RefreshCw, Search, X } from 'lucide-react'
+import { Activity, AlertTriangle, Check, Copy, Plus, RefreshCw, Search, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { DEFAULT_PLANS } from '../../../shared/pricing'
 import { DEMO_MODE } from '../../lib/config'
@@ -34,6 +34,16 @@ export default function AdminHome(){
   }
   useEffect(()=>{ load().catch(e=>setMsg(e.message)) },[])
   const reload=()=>load().catch(e=>notify.error(e.message))
+
+  // Roda as chamadas de geracao isoladas para separar as causas de falha.
+  // Custa centavos, nao cobra credito e nao cria geracao.
+  const [diag,setDiag]=useState(null)
+  async function diagnose(){
+    if(!confirm('Rodar o diagnóstico? Ele faz algumas chamadas reais à OpenAI, de custo baixo, sem consumir crédito do sistema.')) return
+    setBusy(true); setDiag(null)
+    try{ const out=await api('admin-diagnose',{method:'POST'}); setDiag(out); notify.info('Diagnóstico concluído.') }
+    catch(e){ notify.error(e.message) } finally{ setBusy(false) }
+  }
 
   function strongPassword(){
     const chars='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$'
@@ -122,6 +132,27 @@ export default function AdminHome(){
         </div>
       </div>)}</div>
     </section>}
+
+    <section className="panel">
+      <div className="panel-head">
+        <div><span className="eyebrow">DIAGNÓSTICO</span><h2>A GERAÇÃO ESTÁ SAUDÁVEL?</h2></div>
+        <button className="small-btn" disabled={busy} onClick={diagnose}><Activity size={15}/>RODAR TESTE</button>
+      </div>
+      {!diag&&<p className="hint">Testa a chave da OpenAI, confirma se os modelos configurados existem, e gera uma imagem mínima com e sem referência anexada. Separa as causas de falha sem gastar crédito do sistema.</p>}
+      {diag&&<>
+        <div className="form-message">{diag.veredito}</div>
+        <div className="diag-grid">
+          {diag.checks.map((c,i)=><div key={i} className={c.ok?'ok':'no'}>
+            <strong>{c.ok?<Check size={14}/>:<X size={14}/>} {c.label}</strong>
+            <span>{c.ms} ms{c.total?` · ${c.total} modelos`:''}{c.bytes_recebidos?` · imagem recebida`:''}</span>
+            {c.error&&<em>{c.error}</em>}
+            {c.detail&&<code className="error-detail">{c.detail}</code>}
+            {c.imagem_disponiveis&&<code className="error-detail">modelos de imagem na conta: {c.imagem_disponiveis.join(', ')||'nenhum'}</code>}
+          </div>)}
+        </div>
+        <div className="diag-config">{Object.entries(diag.config).map(([k,v])=><span key={k}><i>{k}</i>{String(v)}</span>)}</div>
+      </>}
+    </section>
 
     {queue.failed_jobs?.length>0&&<section className="panel queue-panel">
       <div className="panel-head"><div><span className="eyebrow">ATENÇÃO</span><h2>GERAÇÕES QUE FALHARAM.</h2></div></div>
