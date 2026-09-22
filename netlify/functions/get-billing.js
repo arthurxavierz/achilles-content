@@ -13,6 +13,9 @@ export async function handler(event){
       loadCatalog(auth.service)
     ])
     return json(200,{
+      // O saldo volta junto: sem isso o cabecalho e o estudio mostram o
+      // numero de antes da geracao ate a pagina ser recarregada.
+      profile:auth.profile,
       subscription,plans:plans||[],packs:packs||[],recent:recent||[],pending:pending||[],
       pricing:catalog.pricing,
       presets:catalog.presets.map(({slug,name,summary})=>({slug,name,summary}))

@@ -6,10 +6,12 @@ import { api } from '../lib/api'
 import { dateLong, dateTime, money, number } from '../lib/format'
 import { useAuth } from '../context/AuthContext'
 import { useBilling } from '../context/BillingContext'
+import { useToast } from '../components/Toast'
 
 export default function Billing(){
   const { profile } = useAuth()
   const { subscription, plans, packs, recent=[], pending=[], pricing, refresh } = useBilling()
+  const notify=useToast()
   const [msg,setMsg]=useState('')
   const [charge,setCharge]=useState(null)
   const [busy,setBusy]=useState(false)
@@ -34,15 +36,15 @@ export default function Billing(){
   },[recent])
 
   async function buy(kind,slug){
-    if(DEMO_MODE) return setMsg('Compra indisponível no modo demonstração.')
+    if(DEMO_MODE) return notify.info('Compra indisponível no modo demonstração.')
     setBusy(true); setMsg(''); setCopied(false)
     try{ setCharge(await api('create-pix-charge',{method:'POST',body:{kind,slug}})); await refresh() }
-    catch(e){ setMsg(e.message) } finally{ setBusy(false) }
+    catch(e){ notify.error(e.message) } finally{ setBusy(false) }
   }
 
   function copyPix(){
     if(!charge) return
-    navigator.clipboard.writeText(charge.pix_payload)
+    navigator.clipboard.writeText(charge.pix_payload).then(()=>notify.success('Código PIX copiado. Cole no app do seu banco.')).catch(()=>notify.error('Não foi possível copiar. Selecione o código manualmente.'))
     setCopied(true)
     setTimeout(()=>setCopied(false),2500)
   }

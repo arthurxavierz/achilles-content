@@ -179,3 +179,44 @@ export async function loadBrandReferences(svc,userId,max=2){
   }
   return out
 }
+
+// ---------------------------------------------------------------------
+// Normalizacao da copy.
+// O modelo quebra linha dentro do titulo para desenhar a peca. Só que o
+// <input type=text> do estudio, por especificacao do HTML, APAGA quebra de
+// linha do valor em vez de trocar por espaco: "nao foi\nfeito" chegava na
+// tela como "nao foifeito", e era esse valor corrompido que o cliente
+// aprovava e que ia para o prompt da imagem.
+// A correcao mora aqui, no servidor, para valer tambem para o que ja
+// estiver salvo e para qualquer cliente futuro.
+// ---------------------------------------------------------------------
+export const oneLine = value => String(value ?? '')
+  .replace(/[\r\n\t\u000b\u000c\u0085\u2028\u2029]+/g, ' ')  // toda quebra vira espaco
+  .replace(/\u00a0/g, ' ')                                    // espaco duro vira normal
+  .replace(/ {2,}/g, ' ')
+  .trim()
+
+// Na legenda o paragrafo tem valor, entao so limpamos o excesso.
+export const manyLines = value => String(value ?? '')
+  .replace(/\r\n?/g, '\n')
+  .replace(/[\t\u000b\u000c\u0085\u2028\u2029]+/g, ' ')
+  .replace(/\u00a0/g, ' ')
+  .replace(/[ ]{2,}/g, ' ')
+  .replace(/\n{3,}/g, '\n\n')
+  .split('\n').map(line => line.trim()).join('\n')
+  .trim()
+
+export function normalizeCopy(copy){
+  if(!copy || typeof copy !== 'object') return copy
+  return {
+    ...copy,
+    headline: oneLine(copy.headline),
+    caption: manyLines(copy.caption),
+    hashtags: Array.isArray(copy.hashtags)
+      ? copy.hashtags.map(h => oneLine(h).replace(/\s+/g,'')).filter(Boolean)
+      : [],
+    slides: Array.isArray(copy.slides)
+      ? copy.slides.map(s => ({ ...s, title: oneLine(s?.title), subtitle: oneLine(s?.subtitle) }))
+      : []
+  }
+}

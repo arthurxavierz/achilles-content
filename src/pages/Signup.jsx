@@ -8,9 +8,11 @@ import { deviceId } from '../lib/device'
 import { number } from '../lib/format'
 import Brandmark from '../components/Brandmark'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from '../components/Toast'
 
 export default function Signup() {
   const { login } = useAuth()
+  const notify = useToast()
   const [form, setForm] = useState({ full_name: '', email: '', password: '' })
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
@@ -27,6 +29,7 @@ export default function Signup() {
       await api('signup', { method: 'POST', body: { ...form, device_id: deviceId() } })
       // A conta já nasce confirmada, então entramos direto.
       await login(form.email, form.password)
+      notify.success(`Conta criada. Você recebeu ${number(FREE_SIGNUP_CREDITS)} créditos de cortesia.`)
       navigate('/app')
     } catch (e) {
       setMessage(e.message)

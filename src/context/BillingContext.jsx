@@ -28,6 +28,7 @@ export function BillingProvider({ children }) {
     setLoading(true)
     try {
       const data = await api('get-billing')
+      if (data.profile) patchProfile(data.profile)
       setBilling({
         subscription: normalizeSubscription(data.subscription),
         plans: normalizePlans(data.plans),

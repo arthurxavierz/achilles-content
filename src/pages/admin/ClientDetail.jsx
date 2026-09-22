@@ -6,6 +6,7 @@ import { DEMO_MODE } from '../../lib/config'
 import { api } from '../../lib/api'
 import { dateTime, money, number } from '../../lib/format'
 import { useBilling } from '../../context/BillingContext'
+import { useToast } from '../../components/Toast'
 
 const LONG=['audience','tone','briefing','guardrails','visual_rules','references_text','recurring_elements','copy_rules','image_rules','forbidden_terms','differentiators','services']
 const BRAND_FIELDS=['brand_name','segment','instagram_handle','default_cta','audience','tone','differentiators','services','briefing','guardrails','visual_rules','references_text','recurring_elements','text_style','copy_rules','image_rules','forbidden_terms']
@@ -14,6 +15,7 @@ const LABEL={brand_name:'Nome da marca',segment:'Segmento',instagram_handle:'Ins
 export default function ClientDetail(){
   const {id}=useParams()
   const {plans}=useBilling()
+  const notify=useToast()
   const [data,setData]=useState(null)
   const [tab,setTab]=useState('brand')
   const [msg,setMsg]=useState('')
@@ -36,20 +38,22 @@ export default function ClientDetail(){
 
   async function run(fn,ok){
     setBusy(true); setMsg('')
-    try{ await fn(); setMsg(ok) }catch(e){ setMsg(e.message) } finally{ setBusy(false) }
+    try{ await fn(); notify.success(ok) }catch(e){ notify.error(e.message) } finally{ setBusy(false) }
   }
 
   const saveBrand=()=>run(async()=>{ if(!DEMO_MODE) await api('admin-update-client-brand',{method:'POST',body:{user_id:id,brand:data.brand}}) },'Brand Brain atualizado pelo suporte.')
 
   const grant=()=>{
-    if(!reason.trim()) return setMsg('Informe o motivo da concessão.')
+    if(!reason.trim()) return notify.error('Informe o motivo da concessão.')
+    if(!(Number(amount)>0)) return notify.error('A quantidade precisa ser maior que zero.')
+    if(!confirm(`Conceder ${number(amount)} créditos avulsos para ${data.profile.full_name||data.profile.email}?`)) return
     return run(async()=>{
       if(!DEMO_MODE){ await api('admin-grant-credits',{method:'POST',body:{user_id:id,amount:Number(amount),reason,bucket:'extra'}}); setData(await api(`admin-get-client?user_id=${id}`)) }
     },'Créditos concedidos e registrados no extrato.')
   }
 
   const setPlan=()=>{
-    if(!planSlug) return setMsg('Escolha um plano.')
+    if(!planSlug) return notify.error('Escolha um plano.')
     return run(async()=>{
       if(!DEMO_MODE){ await api('admin-set-plan',{method:'POST',body:{user_id:id,plan_slug:planSlug}}); setData(await api(`admin-get-client?user_id=${id}`)) }
     },'Plano atualizado. Os créditos entram na próxima confirmação de pagamento ou renovação.')
@@ -60,10 +64,13 @@ export default function ClientDetail(){
     return run(async()=>{ const out=await api('admin-reset-password',{method:'POST',body:{user_id:id}}); await navigator.clipboard.writeText(out.password) },'Nova senha copiada para a área de transferência.')
   }
 
-  const toggle=()=>run(async()=>{
+  const toggle=()=>{
+    if(!confirm(data.profile.active?'Desativar esta conta? O cliente perde o acesso imediatamente.':'Reativar esta conta?')) return
+    return run(async()=>{
     if(!DEMO_MODE) await api('admin-set-client-status',{method:'POST',body:{user_id:id,active:!data.profile.active}})
     setData(d=>({...d,profile:{...d.profile,active:!d.profile.active}}))
-  },'Status da conta atualizado.')
+    },'Status da conta atualizado.')
+  }
 
   return <div className="page">
     <Link className="back-link" to="/admin"><ArrowLeft size={17}/>Voltar</Link>

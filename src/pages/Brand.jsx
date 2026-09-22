@@ -7,6 +7,7 @@ import { api } from '../lib/api'
 import { uid } from '../lib/format'
 import { useAuth } from '../context/AuthContext'
 import { useBilling } from '../context/BillingContext'
+import { useToast } from '../components/Toast'
 
 const empty = { brand_name:'', segment:'', audience:'', tone:'Profissional, direto e humano.', primary_color:'#D8AF58', secondary_color:'#111111', typography:'Anton para títulos e Inter para textos', briefing:'', guardrails:'', visual_rules:'', differentiators:'', services:'', default_cta:'', instagram_handle:'', references_text:'', forbidden_terms:'', preset_slug:'editorial', recurring_elements:'', render_text:false, text_style:'', copy_rules:'', image_rules:'' }
 
@@ -16,6 +17,7 @@ const FIELDS = Object.keys(empty)
 export default function Brand() {
   const { user } = useAuth()
   const { presets } = useBilling()
+  const notify = useToast()
   const [brand, setBrand] = useState(empty)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
@@ -49,7 +51,7 @@ export default function Brand() {
     const files = Array.from(event.target.files || [])
     event.target.value = ''
     if (!files.length) return
-    if (refs.length + files.length > MAX_REFS) return setMsg(`Máximo de ${MAX_REFS} referências.`)
+    if (refs.length + files.length > MAX_REFS) return notify.error(`Máximo de ${MAX_REFS} referências.`)
     setUpBusy(true); setMsg('')
     try{
       let position = refs.length
@@ -65,8 +67,8 @@ export default function Brand() {
         if (rowErr) throw rowErr
       }
       await loadRefs()
-      setMsg('Referências enviadas. Elas passam a ser anexadas em cada geração.')
-    }catch(e){ setMsg(e.message) } finally { setUpBusy(false) }
+      notify.success('Referências enviadas. Elas passam a ser anexadas em cada geração.')
+    }catch(e){ notify.error(e.message) } finally { setUpBusy(false) }
   }
 
   async function removeRef(row){
@@ -75,7 +77,7 @@ export default function Brand() {
       await supabase.storage.from('brand-references').remove([row.storage_path])
       await supabase.from('brand_reference_images').delete().eq('id', row.id)
       await loadRefs()
-    }catch(e){ setMsg(e.message) } finally { setUpBusy(false) }
+    }catch(e){ notify.error(e.message) } finally { setUpBusy(false) }
   }
 
   function set(key,value){ setBrand(b=>({...b,[key]:value})) }
@@ -84,8 +86,8 @@ export default function Brand() {
     e.preventDefault(); setBusy(true); setMsg('')
     try{
       if(!DEMO_MODE) await api('save-brand',{method:'POST',body:Object.fromEntries(FIELDS.map(k=>[k,brand[k]??'']))})
-      setMsg('Brand Brain salvo com sucesso.')
-    }catch(e){ setMsg(e.message) } finally { setBusy(false) }
+      notify.success('Brand Brain salvo. As próximas gerações já usam estas regras.')
+    }catch(e){ notify.error(e.message) } finally { setBusy(false) }
   }
 
   const presetList = presets?.length ? presets : DEFAULT_PRESETS

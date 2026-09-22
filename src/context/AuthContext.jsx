@@ -34,6 +34,15 @@ export function AuthProvider({ children }) {
     return () => listener.subscription.unsubscribe()
   }, [])
 
+  // api() emite este evento ao receber 401. Sem isso o cliente fica num
+  // painel vivo cujas acoes todas respondem "Nao autorizado".
+  useEffect(() => {
+    if (DEMO_MODE) return
+    const onExpired = () => { supabase.auth.signOut().catch(() => {}); setSession(null); setProfile(null) }
+    window.addEventListener('achilles:unauthorized', onExpired)
+    return () => window.removeEventListener('achilles:unauthorized', onExpired)
+  }, [])
+
   async function login(email, password) {
     if (DEMO_MODE) return
     const { error } = await supabase.auth.signInWithPassword({ email, password })

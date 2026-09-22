@@ -6,12 +6,14 @@ import { DEMO_MODE } from '../../lib/config'
 import { api } from '../../lib/api'
 import { dateTime, money, number } from '../../lib/format'
 import { useBilling } from '../../context/BillingContext'
+import { useToast } from '../../components/Toast'
 
 const demoClients=[{id:'c1',full_name:'Boost Imóveis',email:'contato@boost.com.br',active:true,credits:5810},{id:'c2',full_name:'Clínica Aurora',email:'contato@aurora.com.br',active:true,credits:1020},{id:'c3',full_name:'Studio RX',email:'studio@rx.com.br',active:false,credits:12170}]
 const demoMetrics={active_clients:19,mrr_cents:836100,credits_circulation:429100,credits_used_month:184700,revenue_month_cents:591400,api_cost_month_cents:121800,margin_pct:79,pending_payments:2,usd_brl:5.6}
 
 export default function AdminHome(){
   const { plans } = useBilling()
+  const notify = useToast()
   const [metrics,setMetrics]=useState(DEMO_MODE?demoMetrics:{})
   const [clients,setClients]=useState(DEMO_MODE?demoClients:[])
   const [queue,setQueue]=useState({payments:[],requests:[],failed_jobs:[]})
@@ -31,6 +33,7 @@ export default function AdminHome(){
     setMetrics(m); setClients(c.clients||[]); setTotals(c.totals||{}); setQueue(q)
   }
   useEffect(()=>{ load().catch(e=>setMsg(e.message)) },[])
+  const reload=()=>load().catch(e=>notify.error(e.message))
 
   function strongPassword(){
     const chars='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$'
@@ -43,21 +46,32 @@ export default function AdminHome(){
     e.preventDefault(); setBusy(true); setMsg('')
     try{
       if(DEMO_MODE){ setCreated({...form,id:'demo-new'}) }
-      else{ const out=await api('admin-create-client',{method:'POST',body:{...form,initial_credits:Number(form.initial_credits)}}); setCreated({...out.client,password:form.password}); await load() }
-    }catch(e){ setMsg(e.message) } finally{ setBusy(false) }
+      else{ const out=await api('admin-create-client',{method:'POST',body:{...form,initial_credits:Number(form.initial_credits)}}); setCreated({...out.client,password:form.password}); notify.success('Cliente criado. Copie as credenciais antes de fechar.'); await load() }
+    }catch(e){ notify.error(e.message) } finally{ setBusy(false) }
   }
 
   // Conciliacao: o admin confere o PIX no extrato do banco e decide aqui.
   async function resolvePayment(id,status){
-    setBusy(true); setMsg('')
-    try{ await api('admin-resolve-payment',{method:'POST',body:{payment_id:id,status}}); await load() }
-    catch(e){ setMsg(e.message) } finally{ setBusy(false) }
+    // Confirmar concede credito na hora e nao tem desfazer.
+    const ok=status==='approved'
+      ? confirm('Confirmar este pagamento? Os créditos entram na conta do cliente imediatamente.')
+      : confirm('Recusar este pagamento?')
+    if(!ok) return
+    setBusy(true)
+    try{
+      const out=await api('admin-resolve-payment',{method:'POST',body:{payment_id:id,status}})
+      notify.success(out.status==='approved'?`Pagamento confirmado. ${out.credits?`${number(out.credits)} créditos liberados.`:'Créditos liberados.'}`:'Pagamento recusado.')
+      await load()
+    }catch(e){ notify.error(e.message) } finally{ setBusy(false) }
   }
 
   async function resolveRequest(id,status){
-    setBusy(true); setMsg('')
-    try{ await api('admin-resolve-request',{method:'POST',body:{request_id:id,status}}); await load() }
-    catch(e){ setMsg(e.message) } finally{ setBusy(false) }
+    setBusy(true)
+    try{
+      await api('admin-resolve-request',{method:'POST',body:{request_id:id,status}})
+      notify.success(status==='approved'?'Solicitação aprovada e créditos concedidos.':'Solicitação negada.')
+      await load()
+    }catch(e){ notify.error(e.message) } finally{ setBusy(false) }
   }
 
   const pending=queue.payments||[]
@@ -120,7 +134,7 @@ export default function AdminHome(){
     <section className="panel">
       <div className="panel-head">
         <div><span className="eyebrow">CONTAS</span><h2>TODOS OS CADASTRADOS.</h2></div>
-        <button className="small-btn" onClick={()=>load().catch(e=>setMsg(e.message))}><RefreshCw size={15}/>ATUALIZAR</button>
+        <button className="small-btn" onClick={reload}><RefreshCw size={15}/>ATUALIZAR</button>
       </div>
 
       <div className="account-summary">

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { ArrowRight } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
@@ -12,7 +12,7 @@ export default function Login() {
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const navigate = useNavigate()
-  if (user) navigate('/app')
+  useEffect(() => { if (user) navigate('/app', { replace: true }) }, [user])
 
   async function submit(e) { e.preventDefault(); setBusy(true); setMessage(''); try { await login(email, password); navigate('/app') } catch (e) { setMessage(e.message) } finally { setBusy(false) } }
   async function reset() { if (!email) return setMessage('Informe seu e-mail primeiro.'); try { await recover(email); setMessage('Enviamos as instruções de recuperação para seu e-mail.') } catch { setMessage('Não foi possível iniciar a recuperação de senha.') } }

@@ -1,4 +1,4 @@
-import { FORMATS,assertSpendCeiling,body,copySlug,imageCount,json,loadCatalog,loadSettings,method,priceOf,rateLimit,requireUser,safeError,text,textCostUsd } from './_shared.js'
+import { FORMATS,assertSpendCeiling,body,copySlug,imageCount,json,loadCatalog,loadSettings,method,normalizeCopy,priceOf,rateLimit,requireUser,safeError,text,textCostUsd } from './_shared.js'
 
 const schema={type:'object',additionalProperties:false,properties:{headline:{type:'string'},slides:{type:'array',maxItems:20,items:{type:'object',additionalProperties:false,properties:{title:{type:'string'},subtitle:{type:'string'}},required:['title','subtitle']}},caption:{type:'string'},hashtags:{type:'array',maxItems:30,items:{type:'string'}}},required:['headline','slides','caption','hashtags']}
 
@@ -35,7 +35,8 @@ ${format}. Gere ${slides}.
 
 REGRAS DE ESCRITA
 ${style}
-Respeite integralmente os guardrails da marca e nunca use os termos proibidos.`
+Respeite integralmente os guardrails da marca e nunca use os termos proibidos.
+Escreva headline, títulos e subtítulos em uma única linha, sem quebra de linha no meio. A quebra é decidida na arte, não no texto.`
 }
 
 export async function handler(event){
@@ -72,7 +73,9 @@ export async function handler(event){
       const raw=await res.json()
       const output=raw.output_text||raw.output?.flatMap(x=>x.content||[]).find(x=>x.type==='output_text')?.text
       if(!output)throw new Error('Resposta vazia')
-      const copy=JSON.parse(output)
+      // Normaliza antes de salvar: o titulo vem com quebra de linha e o
+      // <input> do estudio apaga a quebra sem por espaco no lugar.
+      const copy=normalizeCopy(JSON.parse(output))
       await auth.service.from('generations').update({copy_json:copy,status:'copy_ready'}).eq('id',g.id)
       await auth.service.rpc('add_generation_cost',{p_generation_id:g.id,p_cost:textCostUsd(raw.usage)})
       return json(200,{generation_id:g.id,copy})

@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { dateTime, number } from '../lib/format'
+import { useToast } from '../components/Toast'
 
 const STATUS={draft:'Rascunho',copy_ready:'Copy pronta',copy_approved:'Copy aprovada',processing:'Gerando artes',images_ready:'Entregue',failed:'Falhou'}
 
@@ -16,6 +17,7 @@ const demoRows=[
 
 export default function History(){
   const {user}=useAuth()
+  const notify=useToast()
   const [rows,setRows]=useState(DEMO_MODE?demoRows:[])
   const [query,setQuery]=useState('')
   const [format,setFormat]=useState('all')
@@ -36,21 +38,28 @@ export default function History(){
     if(row.status!=='images_ready') return
     setBusy(true)
     try{ const out=await api('sign-generation-urls',{method:'POST',body:{generation_id:row.id}}); setUrls(out.images||[]) }
-    catch{} finally{ setBusy(false) }
+    catch(e){ notify.error(e.message) } finally{ setBusy(false) }
   }
 
+  // A URL assinada vale uma hora. Gaveta aberta ha muito tempo falha aqui,
+  // e o cliente precisa saber que e so reabrir.
   async function download(url,name){
-    const blob=await fetch(url).then(r=>r.blob())
-    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name||'arte.png'
-    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href)
+    try{
+      const blob=await fetch(url).then(r=>r.blob())
+      const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name||'arte.png'
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href)
+    }catch{ notify.error('O link expirou. Feche e abra a geração de novo.') }
   }
 
   async function all(){
     if(!urls.length) return
-    const zip=new JSZip()
-    await Promise.all(urls.map(async x=>zip.file(x.name||'arte.png', await fetch(x.url).then(r=>r.blob()))))
-    const blob=await zip.generateAsync({type:'blob'})
-    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='achilles-content.zip'; a.click(); URL.revokeObjectURL(a.href)
+    try{
+      const zip=new JSZip()
+      await Promise.all(urls.map(async x=>zip.file(x.name||'arte.png', await fetch(x.url).then(r=>r.blob()))))
+      const blob=await zip.generateAsync({type:'blob'})
+      const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='achilles-content.zip'; a.click(); URL.revokeObjectURL(a.href)
+      notify.success('ZIP baixado.')
+    }catch{ notify.error('Não foi possível montar o ZIP. Baixe as artes uma a uma.') }
   }
 
   const copy=selected?.copy_json||{}

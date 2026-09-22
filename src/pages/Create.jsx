@@ -7,6 +7,7 @@ import { api } from '../lib/api'
 import { number, uid } from '../lib/format'
 import { useAuth } from '../context/AuthContext'
 import { useBilling } from '../context/BillingContext'
+import { useToast } from '../components/Toast'
 
 const demoCopy = format => ({ headline:'SEU PROCESSO CONTINUA SEM VOCÊ?', slides: format==='carousel' ? [
   {title:'SEU PROCESSO CONTINUA SEM VOCÊ?',subtitle:'Quando tudo depende de uma pessoa, o problema não é falta de esforço. É falta de processo.'},
@@ -19,6 +20,7 @@ const demoCopy = format => ({ headline:'SEU PROCESSO CONTINUA SEM VOCÊ?', slide
 export default function Create() {
   const { profile } = useAuth()
   const { demoSpend, refresh, pricing, presets } = useBilling()
+  const notify = useToast()
   const [format,setFormat]=useState('carousel')
   const [quality,setQuality]=useState('standard')
   const [preset,setPreset]=useState('')
@@ -32,6 +34,10 @@ export default function Create() {
   const [images,setImages]=useState([])
   const [error,setError]=useState('')
 
+  // O aviso inline fica no contexto da etapa; o toast garante que o cliente
+  // veja o retorno mesmo com o formulario rolado.
+  const fail = m => { setError(m); notify.error(m) }
+
   useEffect(()=>{ if(!preset && presets?.length) setPreset(presets[0].slug) },[presets])
 
   const spec=formatOf(format)
@@ -44,24 +50,24 @@ export default function Create() {
   const canImages=balance>=costImages
 
   async function generateCopy(){
-    if(!theme.trim()) return setError('Informe o tema da publicação.')
-    if(!canCopy) return setError(`Faltam ${number(costCopy-balance)} créditos para gerar a copy.`)
+    if(!theme.trim()) return fail('Informe o tema da publicação.')
+    if(!canCopy) return fail(`Faltam ${number(costCopy-balance)} créditos para gerar a copy.`)
     setBusy(true); setError('')
     try{
       if(DEMO_MODE){ await new Promise(r=>setTimeout(r,900)); demoSpend(costCopy); setCopy(demoCopy(format)); setGenerationId(uid()) }
       else { const out=await api('generate-copy',{method:'POST',body:{theme,format,idempotency_key:uid()}}); setCopy(out.copy); setGenerationId(out.generation_id); await refresh() }
-      setStep(2)
-    }catch(e){ setError(e.message) } finally { setBusy(false) }
+      setStep(2); notify.success('Copy gerada. Revise antes de aprovar.')
+    }catch(e){ fail(e.message) } finally { setBusy(false) }
   }
 
   async function approve(){
     setBusy(true); setError('')
-    try{ if(!DEMO_MODE) await api('approve-copy',{method:'POST',body:{generation_id:generationId,copy}}); setStep(3) }
-    catch(e){ setError(e.message) } finally { setBusy(false) }
+    try{ if(!DEMO_MODE) await api('approve-copy',{method:'POST',body:{generation_id:generationId,copy}}); setStep(3); notify.success('Copy aprovada. Agora é só gerar as artes.') }
+    catch(e){ fail(e.message) } finally { setBusy(false) }
   }
 
   async function generateImages(){
-    if(!canImages) return setError(`Faltam ${number(costImages-balance)} créditos para gerar as artes.`)
+    if(!canImages) return fail(`Faltam ${number(costImages-balance)} créditos para gerar as artes.`)
     setBusy(true); setError('')
     try{
       if(DEMO_MODE){
@@ -70,8 +76,9 @@ export default function Create() {
       } else {
         const out=await api('generate-images',{method:'POST',body:{generation_id:generationId,quality,preset_slug:preset,...(renderText===null?{}:{render_text:renderText}),idempotency_key:uid()}})
         setJob({id:out.job_id,status:'queued',done:0,total:spec.imageCount}); setStep(4); await refresh()
+        notify.info('Geração iniciada. Pode levar alguns minutos, e você acompanha aqui.')
       }
-    }catch(e){ setError(e.message) } finally { setBusy(false) }
+    }catch(e){ fail(e.message) } finally { setBusy(false) }
   }
 
   // Enquanto o job roda, o painel pergunta o andamento. Ao terminar, busca as
@@ -84,22 +91,29 @@ export default function Create() {
 
   useEffect(()=>{
     if(DEMO_MODE||job?.status!=='done'||!generationId) return
-    api('sign-generation-urls',{method:'POST',body:{generation_id:generationId}}).then(out=>setImages(out.images||[])).catch(()=>{})
+    api('sign-generation-urls',{method:'POST',body:{generation_id:generationId}})
+      .then(out=>{ setImages(out.images||[]); notify.success('Artes prontas.') })
+      .catch(()=>notify.error('As artes ficaram prontas, mas o link falhou. Abra o histórico.'))
     refresh()
   },[job?.status,generationId])
 
   async function download(url,name){
+    try{
     const blob=await fetch(url).then(r=>r.blob())
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name||'arte.png'
     document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href)
+    }catch{ notify.error('O link da imagem expirou. Abra o histórico para baixar de novo.') }
   }
 
   async function downloadAll(){
     if(!images.length) return
     const zip=new JSZip()
     await Promise.all(images.map(async x=>zip.file(x.name||'arte.png', await fetch(x.url).then(r=>r.blob()))))
-    const blob=await zip.generateAsync({type:'blob'})
-    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='achilles-content.zip'; a.click(); URL.revokeObjectURL(a.href)
+    try{
+      const blob=await zip.generateAsync({type:'blob'})
+      const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='achilles-content.zip'; a.click(); URL.revokeObjectURL(a.href)
+      notify.success('ZIP baixado.')
+    }catch{ notify.error('Não foi possível montar o ZIP. Baixe as artes uma a uma.') }
   }
 
   async function regenerate(position){
@@ -108,7 +122,8 @@ export default function Create() {
     try{
       const out=await api('regenerate-image',{method:'POST',body:{generation_id:generationId,position,quality}})
       setImages([]); setJob({id:out.job_id,status:'queued',done:position-1,total:position}); await refresh()
-    }catch(e){ setError(e.message) } finally { setBusy(false) }
+      notify.info(`Refazendo a arte ${position}.`)
+    }catch(e){ fail(e.message) } finally { setBusy(false) }
   }
 
   function restart(){ setStep(1); setCopy(null); setGenerationId(null); setJob(null); setImages([]); setTheme(''); setError('') }
@@ -153,7 +168,7 @@ export default function Create() {
       <label>Legenda<textarea rows="6" value={copy.caption||''} onChange={e=>setCopy(c=>({...c,caption:e.target.value}))}/></label>
       <label>Hashtags<input value={(copy.hashtags||[]).join(' ')} onChange={e=>setCopy(c=>({...c,hashtags:e.target.value.split(/\s+/).filter(Boolean)}))}/></label>
       {error&&<div className="form-message error">{error}</div>}
-      <div className="action-row"><button className="btn secondary" onClick={()=>navigator.clipboard.writeText(copy.caption||'')}><CopyIcon size={17}/>COPIAR LEGENDA</button><button className="btn primary" disabled={busy} onClick={approve}><Check size={18}/>APROVAR COPY</button></div>
+      <div className="action-row"><button className="btn secondary" onClick={()=>navigator.clipboard.writeText(copy.caption||'').then(()=>notify.success('Legenda copiada.')).catch(()=>notify.error('Não foi possível copiar a legenda.'))}><CopyIcon size={17}/>COPIAR LEGENDA</button><button className="btn primary" disabled={busy} onClick={approve}><Check size={18}/>APROVAR COPY</button></div>
     </section>}
 
     {step===3&&<section className="panel studio-card approval">
