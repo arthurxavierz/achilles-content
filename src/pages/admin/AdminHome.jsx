@@ -126,7 +126,7 @@ export default function AdminHome(){
     {queue.failed_jobs?.length>0&&<section className="panel queue-panel">
       <div className="panel-head"><div><span className="eyebrow">ATENÇÃO</span><h2>GERAÇÕES QUE FALHARAM.</h2></div></div>
       <div className="queue-list">{queue.failed_jobs.map(j=><div key={j.id}>
-        <div><strong><AlertTriangle size={15}/> {j.generations?.theme||'Geração'}</strong><span>{j.done_count}/{j.total_count} · {j.last_error}</span></div>
+        <div><strong><AlertTriangle size={15}/> {j.generations?.theme||'Geração'}</strong><span>{j.done_count}/{j.total_count} entregues{j.refunded_credits?` · ${number(j.refunded_credits)} cr estornados`:' · nada estornado'} · {j.last_error}</span>{j.error_detail&&<code className="error-detail">{j.error_detail}</code>}</div>
       </div>)}</div>
       <p className="hint">Os créditos das artes não entregues já foram estornados automaticamente.</p>
     </section>}

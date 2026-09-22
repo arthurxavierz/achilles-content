@@ -133,7 +133,16 @@ export async function assertSpendCeiling(svc){
 // ---------------------------------------------------------------------
 export async function dispatchJob(jobId){
   const target=`${process.env.APP_URL}/.netlify/functions/generate-images-background`
-  await fetch(target,{method:'POST',headers:{'content-type':'application/json','x-job-secret':process.env.INTERNAL_JOB_SECRET||''},body:JSON.stringify({job_id:jobId})})
+  // Tempo limite curto: o despacho so precisa ser aceito. Se travar, o
+  // cron-maintenance recolhe o job depois, e nao faz sentido segurar a
+  // resposta do cliente esperando por isso.
+  const controller=new AbortController()
+  const timer=setTimeout(()=>controller.abort(),8000)
+  try{
+    await fetch(target,{method:'POST',signal:controller.signal,headers:{'content-type':'application/json','x-job-secret':process.env.INTERNAL_JOB_SECRET||''},body:JSON.stringify({job_id:jobId})})
+  }catch(error){
+    console.error('despacho do job falhou, cron-maintenance recolhe',jobId,error?.message)
+  }finally{ clearTimeout(timer) }
 }
 
 // Estorna somente as pecas que nao chegaram ao cliente. Imagem entregue ja
@@ -149,6 +158,19 @@ export async function refundUnproducedImages(svc,job,generation,reason){
   const plan=Math.round(Number(job.charged_plan||0)*ratio)
   const extra=Math.round(Number(job.charged_extra||0)*ratio)
   if(plan+extra<=0) return {refunded:0}
+
+  // Reivindica o estorno antes de conceder. O worker pode ser invocado duas
+  // vezes para o mesmo job (retry da plataforma, redespacho do cron), e sem
+  // esta guarda o credito voltava em dobro, no prejuizo da Achilles.
+  const {data:claimed,error}=await svc.rpc('claim_job_refund',{p_job_id:job.id,p_credits:plan+extra})
+  if(error){
+    // Se a V12 ainda nao rodou a funcao nao existe. Melhor estornar uma vez
+    // a mais do que deixar o cliente sem o credito de peca nao entregue.
+    console.error('claim_job_refund indisponivel, seguindo sem guarda',error)
+  }else if(!claimed){
+    return {refunded:0,already:true}
+  }
+
   await svc.rpc('refund_credits',{p_user_id:generation.user_id,p_plan:plan,p_extra:extra,p_reason:reason,p_reference_id:generation.id})
   return {refunded:plan+extra,plan,extra}
 }
@@ -219,4 +241,80 @@ export function normalizeCopy(copy){
       ? copy.slides.map(s => ({ ...s, title: oneLine(s?.title), subtitle: oneLine(s?.subtitle) }))
       : []
   }
+}
+
+// ---------------------------------------------------------------------
+// Chamada a OpenAI com tempo limite, retentativa e erro legivel.
+//
+// O fetch do Node estoura sozinho por volta de cinco minutos e devolve
+// "fetch failed", sem status nem causa. O cliente via isso na tela. Aqui
+// o limite passa a ser nosso, menor que o da plataforma, para sobrar
+// tempo de retentativa, e o erro sai com duas partes: uma mensagem para o
+// cliente e um detalhe tecnico para o log.
+// ---------------------------------------------------------------------
+const TRANSIENT_CODES = new Set(['ETIMEDOUT','ECONNRESET','ECONNREFUSED','EAI_AGAIN','ENOTFOUND','UND_ERR_HEADERS_TIMEOUT','UND_ERR_BODY_TIMEOUT','UND_ERR_SOCKET','UND_ERR_CONNECT_TIMEOUT'])
+
+export function apiError(userMessage, detail, {transient=false, statusCode=502}={}){
+  const err=new Error(userMessage)
+  err.userMessage=userMessage
+  err.detail=detail
+  err.transient=transient
+  err.statusCode=statusCode
+  return err
+}
+
+const sleep = ms => new Promise(r => setTimeout(r, ms))
+
+export async function openaiFetch(url, init, { label='OpenAI', timeoutMs=150000, retries=2 } = {}){
+  let lastError=null
+  for(let attempt=0; attempt<=retries; attempt++){
+    const controller=new AbortController()
+    const timer=setTimeout(()=>controller.abort(), timeoutMs)
+    const started=Date.now()
+    try{
+      const res=await fetch(url,{...init,signal:controller.signal})
+      const elapsed=Date.now()-started
+
+      if(res.ok) return await res.json()
+
+      // Erro de status: le o corpo, que e onde a OpenAI explica o motivo.
+      const body=await res.text().catch(()=>'')
+      const reason=(()=>{ try{ return JSON.parse(body)?.error?.message || '' }catch{ return '' } })()
+      const detail=`${label} HTTP ${res.status} em ${elapsed}ms: ${reason || body.slice(0,300) || 'sem corpo'}`
+
+      // 429 e 5xx valem retentativa. 4xx restante e erro nosso de parametro.
+      if((res.status===429 || res.status>=500) && attempt<retries){
+        lastError=apiError('O serviço de geração está sobrecarregado.',detail,{transient:true})
+        await sleep([2000,6000,15000][attempt] ?? 15000)
+        continue
+      }
+      if(res.status===429) throw apiError('O serviço de geração está sobrecarregado. Tente de novo em alguns minutos.',detail,{transient:true,statusCode:429})
+      if(res.status>=500) throw apiError('O serviço de geração está instável neste momento.',detail,{transient:true})
+      if(res.status===400) throw apiError('A configuração de geração foi recusada pelo serviço. A Achilles já foi avisada.',detail,{statusCode:400})
+      if(res.status===401||res.status===403) throw apiError('Falha de credencial no serviço de geração. Fale com a Achilles.',detail,{statusCode:502})
+      throw apiError('O serviço de geração recusou o pedido.',detail,{statusCode:502})
+
+    }catch(error){
+      if(error?.userMessage) { if(!error.transient || attempt>=retries) throw error; lastError=error; continue }
+
+      const elapsed=Date.now()-started
+      const aborted=error?.name==='AbortError'
+      const code=error?.cause?.code || error?.code || ''
+      const transient=aborted || TRANSIENT_CODES.has(code) || /fetch failed|network|socket/i.test(error?.message||'')
+      const detail=`${label} ${aborted?`abortado por tempo limite (${timeoutMs}ms)`:`falha de rede`} apos ${elapsed}ms${code?` [${code}]`:''}: ${error?.message||'sem mensagem'}`
+
+      if(transient && attempt<retries){
+        lastError=apiError('O serviço de geração não respondeu em tempo.',detail,{transient:true})
+        await sleep([2000,6000,15000][attempt] ?? 15000)
+        continue
+      }
+      throw apiError(
+        aborted ? 'O serviço de geração não respondeu em tempo. Tente de novo.'
+                : 'Não foi possível falar com o serviço de geração.',
+        detail, {transient})
+    }finally{
+      clearTimeout(timer)
+    }
+  }
+  throw lastError || apiError('Não foi possível concluir a geração.','sem detalhe',{transient:true})
 }

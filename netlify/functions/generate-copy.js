@@ -1,4 +1,4 @@
-import { FORMATS,assertSpendCeiling,body,copySlug,imageCount,json,loadCatalog,loadSettings,method,normalizeCopy,priceOf,rateLimit,requireUser,safeError,text,textCostUsd } from './_shared.js'
+import { FORMATS,assertSpendCeiling,body,copySlug,imageCount,json,loadCatalog,loadSettings,method,normalizeCopy,openaiFetch,priceOf,rateLimit,requireUser,safeError,text,textCostUsd } from './_shared.js'
 
 const schema={type:'object',additionalProperties:false,properties:{headline:{type:'string'},slides:{type:'array',maxItems:20,items:{type:'object',additionalProperties:false,properties:{title:{type:'string'},subtitle:{type:'string'}},required:['title','subtitle']}},caption:{type:'string'},hashtags:{type:'array',maxItems:30,items:{type:'string'}}},required:['headline','slides','caption','hashtags']}
 
@@ -68,11 +68,12 @@ export async function handler(event){
     try{
       const {data:brand}=await auth.service.from('brand_profiles').select('*').eq('user_id',auth.user.id).maybeSingle()
       const settings=await loadSettings(auth.service)
-      const res=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{authorization:`Bearer ${process.env.OPENAI_API_KEY}`,'content-type':'application/json'},body:JSON.stringify({model:process.env.OPENAI_TEXT_MODEL,input:buildPrompt({theme,format,brand,defaultStyle:settings.copy_style_default}),text:{format:{type:'json_schema',name:'content_copy',strict:true,schema}}})})
-      if(!res.ok)throw new Error(`OpenAI ${res.status}`)
-      const raw=await res.json()
+      const raw=await openaiFetch('https://api.openai.com/v1/responses',
+        {method:'POST',headers:{authorization:`Bearer ${process.env.OPENAI_API_KEY}`,'content-type':'application/json'},
+         body:JSON.stringify({model:process.env.OPENAI_TEXT_MODEL,input:buildPrompt({theme,format,brand,defaultStyle:settings.copy_style_default}),text:{format:{type:'json_schema',name:'content_copy',strict:true,schema}}})},
+        {label:'copy',timeoutMs:Number(settings.openai_text_timeout_ms||90000),retries:Number(settings.openai_retries??2)})
       const output=raw.output_text||raw.output?.flatMap(x=>x.content||[]).find(x=>x.type==='output_text')?.text
-      if(!output)throw new Error('Resposta vazia')
+      if(!output)throw new Error('A copy voltou vazia do serviço de geração.')
       // Normaliza antes de salvar: o titulo vem com quebra de linha e o
       // <input> do estudio apaga a quebra sem por espaco no lugar.
       const copy=normalizeCopy(JSON.parse(output))

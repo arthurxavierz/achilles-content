@@ -320,3 +320,5 @@ input,textarea,select{max-width:100%}
   .modal{width:100%;max-height:88vh;border-radius:18px 18px 0 0}
   .pix-code{font-size:8px}
 }
+/* Detalhe tecnico da falha, para o admin diagnosticar sem abrir o log. */
+.error-detail{display:block;margin-top:8px;padding:9px 10px;border:1px solid #2c2c2c;border-radius:8px;background:#0a0a0a;color:#8a8a8a;font-size:9px;line-height:1.6;overflow-wrap:anywhere;max-height:88px;overflow:auto}

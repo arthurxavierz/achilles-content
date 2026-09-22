@@ -1,4 +1,4 @@
-import { imageCostUsd,imageModelOf,imageSize,loadBrandReferences,loadCatalog,loadSettings,refundUnproducedImages,service,supportsInputFidelity,textCostUsd } from './_shared.js'
+import { apiError,imageCostUsd,imageModelOf,imageSize,loadBrandReferences,loadCatalog,loadSettings,openaiFetch,refundUnproducedImages,service,supportsInputFidelity,textCostUsd } from './_shared.js'
 
 // Estagio 1. O modelo de texto vira diretor de arte: le a marca e a copy e
 // devolve uma direcao fechada. Sem esta etapa o prompt de imagem vira uma
@@ -12,7 +12,7 @@ const directionSchema={type:'object',additionalProperties:false,properties:{
   scenes:{type:'array',maxItems:10,items:{type:'object',additionalProperties:false,properties:{subject:{type:'string'},detail:{type:'string'}},required:['subject','detail']}}
 },required:['palette','lighting','texture','composition','mood','recurring_elements','scenes']}
 
-async function buildDirection(svc,g,brand,preset){
+async function buildDirection(svc,g,brand,preset,timeouts){
   const slides=(g.copy_json?.slides||[]).map((s,i)=>`Slide ${i+1}: ${s.title} | ${s.subtitle||''}`).join('\n')||g.theme
   const prompt=`Você é diretor de arte de uma marca que já tem identidade visual definida. Seu trabalho não é inventar um estilo: é aplicar o estilo que já existe a um conteúdo novo.
 
@@ -47,11 +47,12 @@ ${g.render_text?'O título da peça será escrito sobre a arte, então cada cena
 As cenas variam de enquadramento entre si, mas mantêm a mesma paleta, luz, textura e elementos recorrentes.
 Adapte o assunto ao nicho tratado no slide, sem trocar o estilo da marca.`
 
-  const res=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{authorization:`Bearer ${process.env.OPENAI_API_KEY}`,'content-type':'application/json'},body:JSON.stringify({model:process.env.OPENAI_TEXT_MODEL,input:prompt,text:{format:{type:'json_schema',name:'art_direction',strict:true,schema:directionSchema}}})})
-  if(!res.ok)throw new Error(`Direção de arte falhou: OpenAI ${res.status}`)
-  const raw=await res.json()
+  const raw=await openaiFetch('https://api.openai.com/v1/responses',
+    {method:'POST',headers:{authorization:`Bearer ${process.env.OPENAI_API_KEY}`,'content-type':'application/json'},
+     body:JSON.stringify({model:process.env.OPENAI_TEXT_MODEL,input:prompt,text:{format:{type:'json_schema',name:'art_direction',strict:true,schema:directionSchema}}})},
+    {label:'direção de arte',timeoutMs:timeouts.text,retries:timeouts.retries})
   const output=raw.output_text||raw.output?.flatMap(x=>x.content||[]).find(x=>x.type==='output_text')?.text
-  if(!output)throw new Error('Direção de arte vazia')
+  if(!output)throw apiError('A direção de arte voltou vazia.','responses sem output_text')
   const direction=JSON.parse(output)
   await svc.rpc('add_generation_cost',{p_generation_id:g.id,p_cost:textCostUsd(raw.usage)})
   return direction
@@ -135,12 +136,13 @@ ${finish}`
 // Referencias anexadas ao pedido. Sao de duas origens e as duas importam:
 // as da marca (mascote, tratamento visual) e a primeira arte da geracao
 // (consistencia entre os slides do carrossel).
-async function callImageApi({model,prompt,size,quality,references,fidelity}){
+async function callImageApi({model,prompt,size,quality,references,fidelity,timeouts}){
   const list=(references||[]).filter(Boolean)
   if(!list.length){
-    const res=await fetch('https://api.openai.com/v1/images/generations',{method:'POST',headers:{authorization:`Bearer ${process.env.OPENAI_API_KEY}`,'content-type':'application/json'},body:JSON.stringify({model,prompt,size,quality,output_format:'png'})})
-    if(!res.ok)throw new Error(`OpenAI imagem ${res.status}`)
-    return res.json()
+    return openaiFetch('https://api.openai.com/v1/images/generations',
+      {method:'POST',headers:{authorization:`Bearer ${process.env.OPENAI_API_KEY}`,'content-type':'application/json'},
+       body:JSON.stringify({model,prompt,size,quality,output_format:'png'})},
+      {label:`imagem ${model} ${size} ${quality}`,timeoutMs:timeouts.image,retries:timeouts.retries})
   }
   const form=new FormData()
   form.append('model',model)
@@ -156,9 +158,9 @@ Não copie o texto que aparece nas referências: a peça tem o texto próprio de
   // referencia ja e do modelo, e mandar o parametro derruba a chamada.
   if(supportsInputFidelity(model)) form.append('input_fidelity',fidelity==='low'?'low':'high')
   for(const ref of list) form.append('image[]',new Blob([ref.bytes],{type:ref.type||'image/png'}),ref.name||'referencia.png')
-  const res=await fetch('https://api.openai.com/v1/images/edits',{method:'POST',headers:{authorization:`Bearer ${process.env.OPENAI_API_KEY}`},body:form})
-  if(!res.ok)throw new Error(`OpenAI imagem ${res.status}`)
-  return res.json()
+  return openaiFetch('https://api.openai.com/v1/images/edits',
+    {method:'POST',headers:{authorization:`Bearer ${process.env.OPENAI_API_KEY}`},body:form},
+    {label:`imagem-edits ${model} ${size} ${quality} refs=${list.length}`,timeoutMs:timeouts.image,retries:timeouts.retries})
 }
 
 export async function handler(event){
@@ -181,11 +183,16 @@ export async function handler(event){
     // A direcao e calculada uma vez por geracao e reaproveitada em retentativas.
     let direction=g.art_direction
     if(!direction){
-      direction=await buildDirection(svc,g,brand,preset)
+      direction=await buildDirection(svc,g,brand,preset,timeouts)
       await svc.from('generations').update({art_direction:direction}).eq('id',g.id)
     }
 
     const settings=await loadSettings(svc)
+    const timeouts={
+      image:Number(settings.openai_image_timeout_ms||150000),
+      text:Number(settings.openai_text_timeout_ms||90000),
+      retries:Number(settings.openai_retries??2)
+    }
     const size=imageSize(g.format,settings)
     const quality=j.image_quality||g.image_quality||'medium'
     const model=j.openai_model||g.openai_model||imageModelOf(null,settings)
@@ -210,9 +217,9 @@ export async function handler(event){
 
     for(let i=j.done_count;i<j.total_count;i++){
       const prompt=buildImagePrompt({g,brand,preset,direction,index:i,safeCrop,renderText,defaultFinish:settings.image_style_default})
-      const payload=await callImageApi({model,prompt,size,quality,fidelity,references:[...brandRefs,previous]})
+      const payload=await callImageApi({model,prompt,size,quality,fidelity,timeouts,references:[...brandRefs,previous]})
       const b64=payload.data?.[0]?.b64_json
-      if(!b64)throw new Error(`Imagem ${i+1} sem conteúdo`)
+      if(!b64)throw apiError(`A arte ${i+1} voltou vazia do serviço de geração.`,`images sem b64_json na posicao ${i+1}`)
       const bytes=Buffer.from(b64,'base64')
       // A primeira peca entregue vira referencia das seguintes, junto com as da marca.
       if(!previous)previous={bytes,type:'image/png',name:'peca-anterior.png'}
@@ -235,10 +242,26 @@ export async function handler(event){
     if(job){
       const {data:current}=await svc.from('generation_jobs').select('done_count').eq('id',job.id).maybeSingle()
       const delivered=Number(current?.done_count||0)
-      await svc.from('generation_jobs').update({status:'failed',last_error:String(error.message||'Falha na geração').slice(0,500),finished_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('id',job.id)
+      // last_error e o que o cliente le. error_detail guarda status, causa e
+      // tempo gasto, que e o que permite diagnosticar sem adivinhar.
+      const userMessage=error?.userMessage || 'Não foi possível concluir a geração.'
+      const detail=error?.detail || String(error?.stack || error?.message || 'sem detalhe')
+      console.error('falha no job',job.id,detail)
+      await svc.from('generation_jobs').update({
+        status:'failed',
+        last_error:userMessage.slice(0,500),
+        error_detail:detail.slice(0,2000),
+        finished_at:new Date().toISOString(),
+        updated_at:new Date().toISOString()
+      }).eq('id',job.id)
       // Se alguma peca chegou a ser entregue, a geracao continua utilizavel.
       await svc.from('generations').update({status:delivered>0?'images_ready':'failed',...(delivered>0?{completed_at:new Date().toISOString()}:{})}).eq('id',job.generation_id)
-      await refundUnproducedImages(svc,job,job.generations,'Estorno das imagens não entregues')
+      const out=await refundUnproducedImages(svc,job,job.generations,'Estorno das imagens não entregues')
+      if(out?.refunded>0){
+        await svc.from('generation_jobs')
+          .update({last_error:`${userMessage} Os créditos das artes não entregues foram estornados.`.slice(0,500)})
+          .eq('id',job.id)
+      }
     }
     return{statusCode:500}
   }

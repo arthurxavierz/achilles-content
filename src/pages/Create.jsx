@@ -182,7 +182,7 @@ export default function Create() {
 
     {step===4&&<section className="panel studio-card wide">
       <span className="eyebrow">GERAÇÃO</span><h2>{job?.status==='done'?'ARTES PRONTAS.':job?.status==='failed'?'A GERAÇÃO FALHOU.':'CONSTRUINDO SUAS ARTES.'}</h2>
-      {job?.status==='failed'&&<div className="form-message error">{job.error||'Falha na geração. Os créditos das artes não entregues foram estornados.'}</div>}
+      {job?.status==='failed'&&<div className="form-message error">{job.error||'Falha na geração. Os créditos das artes não entregues foram estornados.'}<br/>Sua copy continua aprovada: use TENTAR DE NOVO e nada do texto é refeito.</div>}
       <div className="job-progress"><div><span style={{width:`${progress}%`}}/></div><strong>{job?.done||0} de {job?.total||spec.imageCount} imagens</strong></div>
       <div className={`art-grid ${spec.imageCount===1?'single':''}`}>{Array.from({length:spec.imageCount}).map((_,i)=>{
         const art=images.find(x=>x.position===i+1)
@@ -193,6 +193,7 @@ export default function Create() {
       {error&&<div className="form-message error">{error}</div>}
       <div className="action-row">
         <button className="btn secondary" onClick={restart}>NOVA GERAÇÃO</button>
+        {job?.status==='failed'&&<button className="btn primary" disabled={busy} onClick={generateImages}><RefreshCw size={17}/>TENTAR DE NOVO</button>}
         {images.length>0&&<button className="btn primary" onClick={downloadAll}><Download size={17}/>BAIXAR TODAS EM ZIP</button>}
       </div>
     </section>}
