@@ -6,7 +6,8 @@ import { DEMO_MODE } from '../lib/config'
 import { normalizePacks, normalizePlans } from '../lib/normalize'
 import { money, number } from '../lib/format'
 import { CONTACT, waLink } from '../lib/contact'
-import Brandmark from '../components/Brandmark'
+import ParticleHero from '../components/ParticleHero'
+import Reveal from '../components/Reveal'
 import SiteFooter from '../components/SiteFooter'
 
 const wa = waLink('Olá, quero conhecer o Achilles Content.')
@@ -43,20 +44,23 @@ export default function Landing() {
   }, [])
 
   return <div className="landing">
-    <header className="public-nav"><Link to="/" className="logo"><Brandmark/><div><strong>ACHILLES</strong><small>CONTENT</small></div></Link><nav><a href="#como">Como funciona</a><a href="#creditos">Créditos</a><a href="#planos">Planos</a><Link to="/entrar" className="nav-login">Entrar</Link></nav></header>
+    <header className="public-nav"><Link to="/" className="wordmark"><img src="/wordmark.png" alt="Achilles"/><small>CONTENT</small></Link><nav><a href="#como">Como funciona</a><a href="#creditos">Créditos</a><a href="#planos">Planos</a><Link to="/entrar" className="nav-login">Entrar</Link></nav></header>
 
     <section className="hero">
-      <div>
-        <span className="eyebrow">CONTEÚDO COM IDENTIDADE</span>
-        <h1>CONTEÚDO DA SUA MARCA.<br/><em>SEM COMEÇAR DO ZERO.</em></h1>
-        <p>Defina sua identidade uma vez. Gere copies e artes alinhadas à sua marca sempre que precisar. Você aprova o texto antes de gastar crédito com imagem.</p>
-        <div className="hero-actions"><Link to="/criar-conta" className="btn primary">COMEÇAR COM {FREE_SIGNUP_CREDITS} CRÉDITOS<ArrowRight size={18}/></Link><a href={wa} className="btn secondary">FALAR COM A EQUIPE</a></div>
-        <small className="hero-note">Sem cartão. Sem cobrança automática. Você paga por PIX quando decidir continuar.</small>
+      <ParticleHero/>
+      <div className="hero-inner">
+        <span className="eyebrow hero-in" style={{animationDelay:'80ms'}}>CONTEÚDO COM IDENTIDADE</span>
+        <h1 className="hero-in" style={{animationDelay:'160ms'}}>CONTEÚDO DA SUA MARCA.<br/><em>SEM COMEÇAR DO ZERO.</em></h1>
+        <p className="hero-in" style={{animationDelay:'260ms'}}>Defina sua identidade uma vez. Gere copies e artes alinhadas à sua marca sempre que precisar. Você aprova o texto antes de gastar crédito com imagem.</p>
+        <div className="hero-actions hero-in" style={{animationDelay:'360ms'}}>
+          <Link to="/criar-conta" className="btn primary">COMEÇAR COM {FREE_SIGNUP_CREDITS} CRÉDITOS<ArrowRight size={18}/></Link>
+          <a href={wa} className="btn secondary">FALAR COM A EQUIPE</a>
+        </div>
+        <small className="hero-note hero-in" style={{animationDelay:'460ms'}}>Sem cartão. Sem cobrança automática. Você paga por PIX quando decidir continuar.</small>
       </div>
-      <div className="hero-mock"><div className="mock-screen"><span>ACHILLES CONTENT</span><strong>Seu próximo conteúdo começa com uma ideia.</strong><div className="mock-field">Digite o tema da publicação</div><button>GERAR COPY</button></div></div>
     </section>
 
-    <section className="steps" id="como">
+    <Reveal as="section" className="steps" id="como">
       <div className="section-head"><span className="eyebrow">COMO FUNCIONA</span><h2>DO TEMA À ARTE.</h2></div>
       <div className="step-grid">{[
         ['01','Informe o tema','Diga o assunto e o objetivo da publicação.'],
@@ -64,9 +68,9 @@ export default function Landing() {
         ['03','Aprove','Revise, ajuste e aprove antes de gastar com imagem.'],
         ['04','Receba as artes','A direção de arte é montada e o progresso aparece no painel.']
       ].map(x=><article key={x[0]}><b>{x[0]}</b><h3>{x[1]}</h3><p>{x[2]}</p></article>)}</div>
-    </section>
+    </Reveal>
 
-    <section className="deliveries" id="creditos">
+    <Reveal as="section" className="deliveries" id="creditos">
       <div className="section-head"><span className="eyebrow">TRANSPARÊNCIA</span><h2>VOCÊ SABE O QUE VAI GASTAR.</h2><p>Cada operação tem custo fixo em créditos, mostrado antes de confirmar.</p></div>
       <div className="delivery-grid">{FORMATS.map(item=><article key={item.slug}>
         <span>{item.label.toUpperCase()}</span>
@@ -77,9 +81,9 @@ export default function Landing() {
         <article><span className="eyebrow">IMAGEM PADRÃO</span><strong>{number(imageCredits(pricing,'standard'))} créditos</strong><p>Pronta para publicar. É a escolha do dia a dia.</p></article>
         <article className="featured"><span className="eyebrow">IMAGEM ASSINATURA</span><strong>{number(imageCredits(pricing,'signature'))} créditos</strong><p>Máxima fidelidade e detalhe, com direção de arte guiada por referência. Para peças de campanha.</p></article>
       </div>
-    </section>
+    </Reveal>
 
-    <section className="brand-section">
+    <Reveal as="section" className="brand-section">
       <div>
         <span className="eyebrow">BRAND BRAIN E DIREÇÃO DE ARTE</span>
         <h2>SUA IDENTIDADE ENTRA UMA VEZ. O SISTEMA USA SEMPRE.</h2>
@@ -90,9 +94,9 @@ export default function Landing() {
         {presets.slice(0,3).map(p=><div key={p.slug}><small>{p.name.toUpperCase()}</small><strong>{p.summary}</strong></div>)}
         <div className="color-row"><i/><i/></div>
       </div>
-    </section>
+    </Reveal>
 
-    <section className="plans" id="planos">
+    <Reveal as="section" className="plans" id="planos">
       <div className="section-head"><span className="eyebrow">PLANOS</span><h2>CRÉDITOS PARA O SEU RITMO.</h2></div>
       <div className="plan-grid four">{plans.map(plan=><article key={plan.slug} className={plan.badge?'featured':''}>
         {plan.badge&&<span className="tag">{plan.badge}</span>}
@@ -110,19 +114,19 @@ export default function Landing() {
         <span className="eyebrow">SEM ASSINAR</span>
         <p>Pacotes avulsos que não expiram: {packs.map(p=>`${number(p.credits)} por ${money(p.priceCents)}`).join(' · ')}.</p>
       </div>
-    </section>
+    </Reveal>
 
-    <section className="faq">
+    <Reveal as="section" className="faq">
       <div className="section-head"><span className="eyebrow">PERGUNTAS FREQUENTES</span><h2>O QUE PRECISA FICAR CLARO.</h2></div>
       <div>{faqs.map(([q,a],i)=><button key={q} className="faq-item" onClick={()=>setOpen(open===i?-1:i)}><span><strong>{q}</strong><ChevronDown className={open===i?'rot':''}/></span>{open===i&&<p>{a}</p>}</button>)}</div>
-    </section>
+    </Reveal>
 
-    <section className="final-cta">
+    <Reveal as="section" className="final-cta">
       <span className="eyebrow">ACHILLES CONTENT</span>
       <h2>PRONTO PARA COLOCAR SUA MARCA NO FLUXO?</h2>
       <p>Comece com {FREE_SIGNUP_CREDITS} créditos de cortesia ou fale com a equipe pelo WhatsApp {CONTACT.phoneLabel}.</p>
       <div><Link className="btn primary" to="/criar-conta">CRIAR MINHA CONTA</Link><a className="btn secondary" href={wa}>FALAR NO WHATSAPP</a></div>
-    </section>
+    </Reveal>
 
     <SiteFooter/>
   </div>
