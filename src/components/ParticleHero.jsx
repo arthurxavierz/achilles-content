@@ -1,18 +1,20 @@
 import React, { useEffect, useRef } from 'react'
 
-// Fundo animado da hero. Dois sistemas no mesmo canvas, para um loop só:
+// Fundo animado da hero. Tudo num canvas só, um loop só:
 //
-//  1. Poeira: motes dourados que vagam devagar, com linhas entre vizinhos
-//     próximos. É o "pó" do fundo, discreto de propósito.
-//  2. Marca: partículas que convergem para o desenho da logo. Os alvos não
-//     são desenhados na mão: amostramos o canal alpha de /logo.png, então
-//     se a marca mudar, a formação muda junto.
+//  1. Aura: duas manchas douradas que derivam devagar. É o que dá o banho
+//     de ouro e separa a hero do resto da página, que é quase preta.
+//  2. Poeira: motes com teias entre vizinhos próximos.
+//  3. Feixes: partículas que correm de fora para dentro, alimentando a
+//     marca. São elas que dão a leitura de "algo sendo gerado".
+//  4. Marca: partículas que convergem para o desenho da logo. Os alvos não
+//     são coordenadas escritas na mão: amostramos o canal alpha de
+//     /logo.png, então se a marca mudar, a formação muda junto.
+//  5. Brilho: uma faixa de luz varre a marca depois de formada.
 //
-// A cada ciclo um pulso espalha as partículas e elas se reagrupam. É isso
-// que dá a leitura de "partículas formando alguma coisa".
+// A cada ciclo um pulso espalha tudo e o desenho se refaz.
 
-const GOLD = [216, 175, 88]
-const PULSE_MS = 9000
+const PULSE_MS = 10000
 
 export default function ParticleHero() {
   const canvasRef = useRef(null)
@@ -24,47 +26,58 @@ export default function ParticleHero() {
     if (!ctx) return
 
     const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches
-    let width = 0, height = 0, dpr = 1
-    let motes = [], marks = [], targets = []
+    let width = 0, height = 0
+    let motes = [], marks = [], beams = [], targets = []
     let raf = 0, last = 0, elapsed = 0, pulse = -1
     let visible = true, running = true
+    let pointerX = 0, pointerY = 0, parX = 0, parY = 0
 
     function resize() {
       const rect = canvas.getBoundingClientRect()
-      dpr = Math.min(devicePixelRatio || 1, 2)
+      const dpr = Math.min(devicePixelRatio || 1, 2)
       width = Math.max(1, rect.width)
       height = Math.max(1, rect.height)
       canvas.width = Math.round(width * dpr)
       canvas.height = Math.round(height * dpr)
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-      seedMotes()
+      seed()
       placeTargets()
     }
 
-    function seedMotes() {
-      // Densidade por área, com teto: notebook antigo não pode engasgar.
-      const count = Math.min(110, Math.round((width * height) / 14000))
-      motes = Array.from({ length: count }, () => ({
-        x: Math.random() * width,
-        y: Math.random() * height,
-        vx: (Math.random() - 0.5) * 0.16,
-        vy: (Math.random() - 0.5) * 0.16,
-        r: Math.random() * 1.5 + 0.4,
-        a: Math.random() * 0.4 + 0.12
+    function seed() {
+      const n = Math.min(120, Math.round((width * height) / 13000))
+      motes = Array.from({ length: n }, () => ({
+        x: Math.random() * width, y: Math.random() * height,
+        vx: (Math.random() - 0.5) * 0.16, vy: (Math.random() - 0.5) * 0.16,
+        r: Math.random() * 1.5 + 0.4, a: Math.random() * 0.4 + 0.12,
+        // Fase de cintilação: alguns motes piscam, e não todos juntos.
+        tw: Math.random() * Math.PI * 2, tws: 0.4 + Math.random() * 1.2
       }))
+      beams = Array.from({ length: Math.min(26, Math.round(n / 4)) }, () => spawnBeam(true))
     }
 
-    // A marca fica na metade direita no desktop e centralizada quando a
-    // hero empilha no celular.
+    // Feixe nasce fora do quadro e corre até a marca.
+    function spawnBeam(anywhere) {
+      const box = markBox()
+      const angle = Math.random() * Math.PI * 2
+      const far = Math.max(width, height) * (anywhere ? 0.3 + Math.random() * 0.7 : 0.75)
+      return {
+        x: box.cx + Math.cos(angle) * far,
+        y: box.cy + Math.sin(angle) * far,
+        t: anywhere ? Math.random() : 0,
+        speed: 0.0016 + Math.random() * 0.0028,
+        r: Math.random() * 1.2 + 0.5,
+        // Destino: um ponto qualquer da formação, não o centro exato.
+        tx: box.cx + (Math.random() - 0.5) * box.w,
+        ty: box.cy + (Math.random() - 0.5) * box.h
+      }
+    }
+
     function markBox() {
       const stacked = width < 900
-      const h = Math.min(height * (stacked ? 0.52 : 0.78), stacked ? 320 : 460)
-      const w = h * 0.34
-      return {
-        w, h,
-        cx: stacked ? width / 2 : width * 0.74,
-        cy: stacked ? height * 0.72 : height / 2
-      }
+      // No celular a marca ocupa a faixa de baixo; no desktop, a metade direita.
+      const h = Math.min(height * (stacked ? 0.40 : 0.74), stacked ? 330 : 470)
+      return { w: h * 0.34, h, cx: stacked ? width / 2 : width * 0.73, cy: stacked ? height * 0.76 : height / 2 }
     }
 
     function placeTargets() {
@@ -78,11 +91,11 @@ export default function ParticleHero() {
           tx, ty,
           x: old ? old.x : box.cx + (Math.random() - 0.5) * width,
           y: old ? old.y : box.cy + (Math.random() - 0.5) * height,
-          vx: old ? old.vx : 0,
-          vy: old ? old.vy : 0,
-          // Fase própria: sem isso a marca "respira" toda junta e fica robótica.
+          vx: old ? old.vx : 0, vy: old ? old.vy : 0,
           phase: old ? old.phase : Math.random() * Math.PI * 2,
-          r: Math.random() * 1.3 + 0.55
+          r: Math.random() * 1.35 + 0.55,
+          // Posição relativa na marca, usada pela varredura de brilho.
+          ny: t.y
         }
       })
     }
@@ -98,23 +111,15 @@ export default function ParticleHero() {
         octx.drawImage(img, 0, 0, off.width, off.height)
         let data
         try { data = octx.getImageData(0, 0, off.width, off.height).data } catch { return }
-
         const found = []
-        const step = 2
-        for (let y = 0; y < off.height; y += step) {
-          for (let x = 0; x < off.width; x += step) {
-            if (data[(y * off.width + x) * 4 + 3] > 130) {
-              found.push({ x: x / off.width, y: y / off.height })
-            }
-          }
-        }
-        // Amostra uniforme até um teto, embaralhando antes para não pegar
-        // só a parte de cima do desenho.
+        for (let y = 0; y < off.height; y += 2)
+          for (let x = 0; x < off.width; x += 2)
+            if (data[(y * off.width + x) * 4 + 3] > 130) found.push({ x: x / off.width, y: y / off.height })
         for (let i = found.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1))
           ;[found[i], found[j]] = [found[j], found[i]]
         }
-        targets = found.slice(0, 460)
+        targets = found.slice(0, 520)
         placeTargets()
       }
       img.src = '/logo.png'
@@ -133,13 +138,36 @@ export default function ParticleHero() {
     }
 
     function draw(dt, sincePulse) {
-      ctx.clearRect(0, 0, width, height)
       const k = dt / 16.67
+      const t = elapsed / 1000
+      ctx.clearRect(0, 0, width, height)
 
-      // --- poeira e teias ---
-      ctx.lineWidth = 1
+      // Parallax: o campo inteiro responde de leve ao ponteiro.
+      parX += (pointerX - parX) * 0.04 * k
+      parY += (pointerY - parY) * 0.04 * k
+
+      const box = markBox()
+      const cx = box.cx + parX * 26, cy = box.cy + parY * 18
+
+      // --- 1. aura dourada ---
+      ctx.globalCompositeOperation = 'lighter'
+      const auras = [
+        { x: cx + Math.cos(t * 0.17) * width * 0.06, y: cy + Math.sin(t * 0.21) * height * 0.08, r: box.h * 1.25, a: 0.16 },
+        { x: cx + Math.cos(t * 0.11 + 2) * width * 0.11, y: cy + Math.sin(t * 0.14 + 1) * height * 0.12, r: box.h * 0.85, a: 0.11 }
+      ]
+      for (const a of auras) {
+        const g = ctx.createRadialGradient(a.x, a.y, 0, a.x, a.y, a.r)
+        g.addColorStop(0, `rgba(226,184,96,${a.a})`)
+        g.addColorStop(0.45, `rgba(200,152,60,${a.a * 0.35})`)
+        g.addColorStop(1, 'rgba(180,130,40,0)')
+        ctx.fillStyle = g
+        ctx.fillRect(a.x - a.r, a.y - a.r, a.r * 2, a.r * 2)
+      }
+      ctx.globalCompositeOperation = 'source-over'
+
+      // --- 2. poeira e teias ---
       for (const m of motes) {
-        m.x += m.vx * k; m.y += m.vy * k
+        m.x += m.vx * k; m.y += m.vy * k; m.tw += 0.02 * m.tws * k
         if (m.x < -20) m.x = width + 20; else if (m.x > width + 20) m.x = -20
         if (m.y < -20) m.y = height + 20; else if (m.y > height + 20) m.y = -20
       }
@@ -147,83 +175,108 @@ export default function ParticleHero() {
         const a = motes[i]
         for (let j = i + 1; j < motes.length; j++) {
           const b = motes[j]
-          const dx = a.x - b.x, dy = a.y - b.y
-          const d2 = dx * dx + dy * dy
-          if (d2 < 15000) {
-            ctx.strokeStyle = `rgba(${GOLD[0]},${GOLD[1]},${GOLD[2]},${0.085 * (1 - d2 / 15000)})`
-            ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke()
+          const dx = a.x - b.x, dy = a.y - b.y, d2 = dx * dx + dy * dy
+          if (d2 < 16000) {
+            ctx.strokeStyle = `rgba(216,175,88,${0.09 * (1 - d2 / 16000)})`
+            ctx.beginPath(); ctx.moveTo(a.x + parX * 8, a.y + parY * 6); ctx.lineTo(b.x + parX * 8, b.y + parY * 6); ctx.stroke()
           }
         }
-        ctx.fillStyle = `rgba(242,217,143,${a.a})`
-        ctx.beginPath(); ctx.arc(a.x, a.y, a.r, 0, Math.PI * 2); ctx.fill()
+        const twinkle = 0.65 + 0.35 * Math.sin(a.tw)
+        ctx.fillStyle = `rgba(245,224,158,${a.a * twinkle})`
+        ctx.beginPath(); ctx.arc(a.x + parX * 8, a.y + parY * 6, a.r, 0, Math.PI * 2); ctx.fill()
       }
 
-      // --- a marca se formando ---
-      // Logo após o pulso a atração é fraca e as partículas se espalham;
-      // depois ela cresce e o desenho se refaz.
+      // --- 3. feixes alimentando a marca ---
+      ctx.globalCompositeOperation = 'lighter'
+      for (const b of beams) {
+        b.t += b.speed * k
+        if (b.t >= 1) { Object.assign(b, spawnBeam(false)); continue }
+        // Curva de aproximação: desacelera perto do destino.
+        const e = 1 - Math.pow(1 - b.t, 2.2)
+        const x = b.x + (b.tx + parX * 26 - b.x) * e
+        const y = b.y + (b.ty + parY * 18 - b.y) * e
+        const px = b.x + (b.tx + parX * 26 - b.x) * Math.max(0, e - 0.05)
+        const py = b.y + (b.ty + parY * 18 - b.y) * Math.max(0, e - 0.05)
+        const fade = Math.sin(Math.min(1, b.t) * Math.PI)
+        const grad = ctx.createLinearGradient(px, py, x, y)
+        grad.addColorStop(0, 'rgba(216,175,88,0)')
+        grad.addColorStop(1, `rgba(248,232,180,${0.5 * fade})`)
+        ctx.strokeStyle = grad; ctx.lineWidth = b.r
+        ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(x, y); ctx.stroke()
+      }
+      ctx.globalCompositeOperation = 'source-over'
+
+      // --- 4. a marca se formando ---
       const settle = Math.min(1, sincePulse / 2.4)
       const pull = 0.006 + 0.052 * settle * settle
       const burst = sincePulse < 0.45 ? (1 - sincePulse / 0.45) * 7 : 0
+      // Faixa de luz que varre a marca depois de formada.
+      const sweep = sincePulse > 3 ? ((sincePulse - 3) % 4) / 4 : -1
 
+      ctx.globalCompositeOperation = 'lighter'
       for (const p of marks) {
         p.phase += 0.014 * k
-        const dx = p.tx - p.x, dy = p.ty - p.y
-        p.vx += dx * pull * k
-        p.vy += dy * pull * k
+        const tx = p.tx + parX * 26, ty = p.ty + parY * 18
+        const dx = tx - p.x, dy = ty - p.y
+        p.vx += dx * pull * k; p.vy += dy * pull * k
         if (burst) {
           const d = Math.hypot(dx, dy) || 1
           p.vx -= (dx / d) * burst * Math.random() * k
           p.vy -= (dy / d) * burst * Math.random() * k
         }
-        // Ruído que mantém a marca viva depois de formada.
         p.vx += Math.cos(p.phase) * 0.018 * k
         p.vy += Math.sin(p.phase * 1.3) * 0.018 * k
         p.vx *= 0.9; p.vy *= 0.9
         p.x += p.vx * k; p.y += p.vy * k
 
-        const near = 1 - Math.min(1, Math.hypot(p.tx - p.x, p.ty - p.y) / 70)
-        const alpha = 0.16 + near * 0.72
-        ctx.fillStyle = `rgba(${242 - Math.round(near * 20)},${217 + Math.round(near * 20)},${143 + Math.round(near * 60)},${alpha})`
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.r * (0.7 + near * 0.6), 0, Math.PI * 2); ctx.fill()
+        const near = 1 - Math.min(1, Math.hypot(tx - p.x, ty - p.y) / 70)
+        let alpha = 0.16 + near * 0.74
+        let radius = p.r * (0.7 + near * 0.6)
+        // Quem está na faixa da varredura acende.
+        if (sweep >= 0) {
+          const d = Math.abs(p.ny - sweep)
+          if (d < 0.09) { const f = 1 - d / 0.09; alpha = Math.min(1, alpha + f * 0.5); radius *= 1 + f * 0.7 }
+        }
+        ctx.fillStyle = `rgba(255,${226 + Math.round(near * 20)},${170 + Math.round(near * 55)},${alpha})`
+        ctx.beginPath(); ctx.arc(p.x, p.y, radius, 0, Math.PI * 2); ctx.fill()
       }
-
-      // Brilho difuso atrás da formação, para a marca não flutuar no vazio.
-      const box = markBox()
-      const glow = ctx.createRadialGradient(box.cx, box.cy, 0, box.cx, box.cy, box.h * 0.85)
-      glow.addColorStop(0, `rgba(${GOLD[0]},${GOLD[1]},${GOLD[2]},0.10)`)
-      glow.addColorStop(1, 'rgba(216,175,88,0)')
-      ctx.globalCompositeOperation = 'lighter'
-      ctx.fillStyle = glow
-      ctx.fillRect(box.cx - box.h, box.cy - box.h, box.h * 2, box.h * 2)
       ctx.globalCompositeOperation = 'source-over'
     }
 
-    // Parado fora da tela e em aba escondida: não gasta bateria à toa.
     const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting }, { threshold: 0 })
     io.observe(canvas)
     const onVisibility = () => { visible = !document.hidden }
     document.addEventListener('visibilitychange', onVisibility)
 
+    // Parallax só faz sentido com ponteiro; no toque fica parado.
+    const onPointer = e => {
+      if (e.pointerType === 'touch') return
+      pointerX = (e.clientX / innerWidth - 0.5) * 2
+      pointerY = (e.clientY / innerHeight - 0.5) * 2
+    }
+    window.addEventListener('pointermove', onPointer, { passive: true })
+
     const ro = new ResizeObserver(resize)
     ro.observe(canvas)
-
     resize()
     loadMark()
 
-    if (reduced) {
-      // Sem movimento: desenha o estado formado uma vez e para por aí.
-      const settleOnce = () => { for (let i = 0; i < 260; i++) draw(16.67, 99) ; ctx.clearRect(0,0,width,height); draw(16.67, 99) }
-      const t = setTimeout(settleOnce, 260)
-      return () => { clearTimeout(t); ro.disconnect(); io.disconnect(); document.removeEventListener('visibilitychange', onVisibility) }
-    }
-
-    raf = requestAnimationFrame(frame)
-    return () => {
+    const cleanup = () => {
       running = false
       cancelAnimationFrame(raf)
       ro.disconnect(); io.disconnect()
       document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('pointermove', onPointer)
     }
+
+    if (reduced) {
+      // Sem movimento: assenta a formação e desenha uma vez.
+      const t = setTimeout(() => { for (let i = 0; i < 240; i++) draw(16.67, 99); draw(16.67, 99) }, 260)
+      return () => { clearTimeout(t); cleanup() }
+    }
+
+    raf = requestAnimationFrame(frame)
+    return cleanup
   }, [])
 
   return <canvas ref={canvasRef} className="hero-canvas" aria-hidden="true" />

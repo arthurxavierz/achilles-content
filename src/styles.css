@@ -335,3 +335,50 @@ input,textarea,select{max-width:100%}
 .diag-config{display:flex;flex-wrap:wrap;gap:7px;margin-top:14px}
 .diag-config span{font-size:10px;color:#9a9a9a;padding:7px 10px;border:1px solid #262626;border-radius:8px;background:#0a0a0a;overflow-wrap:anywhere}
 .diag-config i{font-style:normal;color:var(--gold);margin-right:6px}
+
+/* ===== V17. Hero de tela cheia, mais dourada, e títulos travados. ===== */
+
+/* A hero ocupa a tela inteira. svh e o viewport pequeno: no celular ele
+   desconta a barra do navegador, que e o que vh nao faz. */
+.hero{min-height:100vh;min-height:100svh;
+  background:
+    radial-gradient(ellipse 60% 50% at 74% 46%,rgba(216,175,88,.18),transparent 68%),
+    radial-gradient(ellipse 90% 70% at 50% 100%,rgba(140,102,34,.16),transparent 72%),
+    linear-gradient(170deg,#141008 0%,#0d0b07 46%,#090909 100%)}
+.hero-inner{min-height:100vh;min-height:100svh;padding:110px 28px 90px}
+
+/* Respiro dourado na emenda com a próxima seção, para a hero não cortar seco. */
+.hero::before{content:'';position:absolute;left:0;right:0;bottom:0;height:160px;z-index:1;pointer-events:none;
+  background:linear-gradient(transparent,#090909)}
+
+/* Seta de rolagem: sinaliza que a página continua abaixo da dobra. */
+.hero-scroll{position:absolute;left:50%;bottom:26px;transform:translateX(-50%);z-index:2;
+  display:grid;place-items:center;gap:7px;font-size:9px;letter-spacing:2.4px;color:#8e805f;pointer-events:none}
+.hero-scroll i{display:block;width:1px;height:38px;background:linear-gradient(var(--gold),transparent);animation:scrollHint 2.1s ease-in-out infinite}
+@keyframes scrollHint{0%,100%{opacity:.25;transform:scaleY(.6);transform-origin:top}50%{opacity:1;transform:scaleY(1)}}
+
+/* TÍTULOS: caixa alta travada e entrelinha curta, como na referência.
+   O padding-top e o que abre espaco para o acento do A e do E sem soltar a
+   entrelinha: subir line-height afastaria as linhas e perderia o peso. */
+.landing h1,.landing h2,.landing h3{text-transform:uppercase;letter-spacing:-.2px}
+.landing h1{line-height:.92;padding-top:.1em}
+.landing h2{line-height:.94;padding-top:.1em}
+.landing h3{line-height:1;padding-top:.08em}
+.landing .price{text-transform:none}
+
+@media(max-width:900px){
+  /* No celular o texto fica na metade de cima e a marca se forma embaixo. */
+  .hero-inner{padding:96px 18px 44px;justify-content:flex-start}
+  .hero-inner h1{max-width:none;font-size:clamp(38px,11vw,58px)}
+  .hero-inner p{font-size:15px;margin-top:16px;max-width:38ch}
+  .hero-inner .hero-actions{margin-top:24px;width:100%}
+  .hero-inner .hero-actions .btn{flex:1;justify-content:center}
+  .hero-note{margin-top:14px}
+  .hero::after{background:linear-gradient(180deg,rgba(9,9,9,.9) 0%,rgba(9,9,9,.66) 42%,rgba(9,9,9,0) 70%)}
+  .hero::before{height:110px}
+}
+@media(max-height:680px) and (max-width:900px){
+  /* Tela baixa: a nota sai para o conteúdo caber sem rolar. */
+  .hero-note{display:none}
+  .hero-inner{padding-top:84px}
+}

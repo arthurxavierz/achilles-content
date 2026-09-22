@@ -58,6 +58,7 @@ export default function Landing() {
         </div>
         <small className="hero-note hero-in" style={{animationDelay:'460ms'}}>Sem cartão. Sem cobrança automática. Você paga por PIX quando decidir continuar.</small>
       </div>
+      <div className="hero-scroll" aria-hidden="true"><span>ROLE</span><i/></div>
     </section>
 
     <Reveal as="section" className="steps" id="como">
