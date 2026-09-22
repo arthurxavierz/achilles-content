@@ -97,7 +97,53 @@ export async function handler(event){
       }))
     }
 
-    // 5. As falhas recentes, com o detalhe técnico.
+    // 5. Background Functions funcionam neste plano?
+    //    A Netlify responde 202 na hora para Background Function. Se a
+    //    funcao estiver rodando como comum, ela executa e devolve o que o
+    //    handler retornar: 404 para uma geracao que nao existe. E esse o
+    //    discriminador, e ele importa porque copy e imagem dependem disso.
+    checks.push(await timed('Background Functions no plano', async () => {
+      if(!process.env.APP_URL) throw new Error('APP_URL não está configurada.')
+      const controller=new AbortController()
+      const timer=setTimeout(()=>controller.abort(),15000)
+      try{
+        const res=await fetch(`${process.env.APP_URL}/.netlify/functions/generate-copy-background`,{
+          method:'POST',signal:controller.signal,
+          headers:{'content-type':'application/json','x-job-secret':process.env.INTERNAL_JOB_SECRET||''},
+          body:JSON.stringify({generation_id:'00000000-0000-0000-0000-000000000000'})
+        })
+        const background = res.status===202
+        return {
+          http: res.status,
+          background,
+          leitura: background
+            ? 'Background Function ativa: a geração roda até 15 minutos.'
+            : res.status===404
+              ? 'Rodando como função comum, limite de 10s. Copy e imagem vão falhar por tempo. O plano precisa de Background Functions.'
+              : res.status===403
+                ? 'Respondeu 403: o INTERNAL_JOB_SECRET do ambiente não bate com o que a função espera.'
+                : 'Resposta inesperada. Confira se o deploy incluiu a função.'
+        }
+      } finally { clearTimeout(timer) }
+    }))
+
+    // 6. Quanto tempo uma copy de verdade leva? E o numero que decide se
+    //    ela caberia ou nao no limite de uma funcao sincrona.
+    checks.push(await timed('tempo real de uma copy de carrossel', async () => {
+      const {data:brand}=await svc.from('brand_profiles').select('*').eq('user_id',auth.user.id).maybeSingle()
+      const contexto=[brand?.brand_name,brand?.segment,brand?.audience,brand?.tone,brand?.briefing,brand?.guardrails,brand?.forbidden_terms].filter(Boolean).join(' | ')
+      const out=await openaiFetch('https://api.openai.com/v1/responses',
+        {method:'POST',headers:{...auth_header,'content-type':'application/json'},
+         body:JSON.stringify({model:config.text_model,input:`Escreva cinco slides curtos para um carrossel sobre organização de processos.
+
+MARCA
+${contexto||'sem contexto'}`})},
+        {label:'copy real',timeoutMs:config.image_timeout_ms,retries:0})
+      const tokens=out?.usage?.output_tokens ?? 0
+      return { tokens_saida: tokens, nota: 'Compare o tempo acima com 10s, que é o limite de função síncrona da Netlify.' }
+    }))
+
+    // 7. As falhas recentes, com o detalhe técnico.
     const {data:failures} = await svc.from('generation_jobs')
       .select('id,created_at,last_error,error_detail,done_count,total_count,refunded_credits,openai_model,image_quality')
       .eq('status','failed').order('created_at',{ascending:false}).limit(5)
@@ -110,6 +156,11 @@ export async function handler(event){
       if(simples && !simples.ok) return 'A geração simples falhou: o problema é o modelo ou o endpoint, não o tamanho nem a referência.'
       if(real && !real.ok) return 'A geração simples passou e a do tamanho real falhou: o tamanho configurado é pesado demais. Baixe feed_image_size.'
       if(comRef && !comRef.ok) return `Só falha com referência anexada (${refKb}KB). Reduza as referências ou baixe reference_images_max.`
+      const bg = checks.find(c=>c.label==='Background Functions no plano')
+      if(bg && bg.background===false) return bg.leitura
+      const copy = checks.find(c=>c.label==='tempo real de uma copy de carrossel')
+      if(copy?.ok && copy.ms>10000 && bg?.background!==true)
+        return `A copy levou ${(copy.ms/1000).toFixed(1)}s, acima do limite de 10s de função síncrona. Ela precisa rodar como Background Function.`
       return 'Todas as chamadas passaram. Se a geração real ainda falha, o problema está no volume do carrossel ou no tempo total da função.'
     })()
 
