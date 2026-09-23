@@ -181,6 +181,16 @@ export async function handler(event){
     const preset=catalog.presetsBySlug[g.preset_slug]||catalog.presets[0]
     const {data:brand}=await svc.from('brand_profiles').select('*').eq('user_id',g.user_id).maybeSingle()
 
+    // Os limites de tempo precisam existir ANTES da direcao de arte, que e a
+    // primeira chamada a usar. Declarados depois, o const caia na temporal
+    // dead zone e toda geracao morria aqui com ReferenceError.
+    const settings=await loadSettings(svc)
+    const timeouts={
+      image:Number(settings.openai_image_timeout_ms||150000),
+      text:Number(settings.openai_text_timeout_ms||90000),
+      retries:Number(settings.openai_retries??2)
+    }
+
     // A direcao e calculada uma vez por geracao e reaproveitada em retentativas.
     let direction=g.art_direction
     if(!direction){
@@ -188,12 +198,6 @@ export async function handler(event){
       await svc.from('generations').update({art_direction:direction}).eq('id',g.id)
     }
 
-    const settings=await loadSettings(svc)
-    const timeouts={
-      image:Number(settings.openai_image_timeout_ms||150000),
-      text:Number(settings.openai_text_timeout_ms||90000),
-      retries:Number(settings.openai_retries??2)
-    }
     const size=imageSize(g.format,settings)
     const quality=j.image_quality||g.image_quality||'medium'
     const model=j.openai_model||g.openai_model||imageModelOf(null,settings)
