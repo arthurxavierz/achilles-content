@@ -1,4 +1,4 @@
-import { FORMATS,assertSpendCeiling,body,copySlug,dispatchCopy,imageCount,json,loadCatalog,method,priceOf,rateLimit,requireUser,safeError,text } from './_shared.js'
+import { CAROUSEL_MAX,FORMATS,assertSpendCeiling,body,copySlug,dispatchCopy,imageCount,integer,json,loadCatalog,method,priceOf,rateLimit,requireUser,safeError,text } from './_shared.js'
 
 // Esta função só cobra, registra e despacha. O trabalho com a OpenAI mora
 // em generate-copy-background, porque função síncrona da Netlify é morta em
@@ -16,6 +16,8 @@ export async function handler(event){
     const format=FORMATS.includes(input.format)?input.format:null
     if(!format)throw Object.assign(new Error('Formato inválido'),{statusCode:400})
     const requestId=text(input.idempotency_key,120,true)
+    // Carrossel de tamanho escolhido: a copy gera um slide por arte.
+    const count=imageCount(format,format==='carousel'?integer(input.image_count??CAROUSEL_MAX,1,CAROUSEL_MAX):1)
 
     // Clique repetido não cobra duas vezes: a mesma chave devolve a mesma
     // geração, em qualquer estado em que ela esteja.
@@ -28,7 +30,7 @@ export async function handler(event){
 
     const {data:g,error:gerr}=await auth.service.from('generations').insert({
       user_id:auth.user.id,format,theme,status:'draft',
-      copy_cost:cost,image_count:imageCount(format),request_id:requestId
+      copy_cost:cost,image_count:count,request_id:requestId
     }).select('id').single()
     if(gerr)throw gerr
 

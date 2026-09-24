@@ -2343,3 +2343,130 @@ body{
 .resume-box strong{display:block;font-size:14px;color:var(--ink,#17150f)}
 .resume-box p{margin:8px 0 14px;font-size:12px;line-height:1.6;color:var(--muted,#69645a)}
 .resume-box .btn{width:100%;justify-content:center}
+
+/* ===== V19. Fluxo aberto: contagem do carrossel, tema aleatório e o
+   texto da publicação entregue junto com as artes. ===== */
+
+/* Quantas artes no carrossel. */
+.count-picker{display:flex;gap:8px;flex-wrap:wrap}
+.count-picker button{width:52px;height:48px;border-radius:12px;font:20px/1 Anton,Impact,sans-serif;
+  border:1px solid var(--line,#e8dfcc);background:var(--paper,#fff);color:var(--muted,#69645a)}
+.count-picker button:hover{border-color:var(--gold,#c99a32);color:var(--ink,#17150f)}
+.count-picker button.active{border-color:var(--gold,#c99a32);background:var(--gold,#c99a32);color:#fff}
+
+/* Tema aleatório: ação secundária colada ao campo de tema. */
+.theme-dice{margin-top:10px}
+.shell .studio-card>textarea{width:100%}
+
+/* O texto da publicação, entregue junto com as artes. */
+.copy-output{margin-top:34px;padding-top:26px;border-top:1px solid var(--line,#e8dfcc)}
+.copy-output .panel-head{margin-bottom:18px}
+.copy-block{position:relative;padding:16px 16px 54px;margin-bottom:10px;border-radius:14px;
+  border:1px solid var(--line,#e8dfcc);background:var(--paper-warm,#f7f2e8)}
+.copy-block small{display:block;font-size:9px;letter-spacing:1.8px;color:var(--gold-deep,#9d7017)}
+.copy-block p{margin:9px 0 0;font-size:13px;line-height:1.65;color:var(--ink,#17150f);white-space:pre-wrap;overflow-wrap:anywhere}
+.copy-block .slide-list{font-variant-numeric:tabular-nums}
+.copy-block .small-btn{position:absolute;left:16px;bottom:14px}
+.copy-block .hashtags{color:var(--gold-deep,#9d7017)}
+
+@media(max-width:760px){
+  .count-picker button{flex:1;min-width:48px}
+  .copy-block{padding-bottom:50px}
+  .copy-block .small-btn{left:14px;bottom:12px}
+}
+.filters .small-btn.ok{border-color:var(--gold,#c99a32);color:var(--gold-deep,#9d7017);background:var(--paper-warm,#f7f2e8)}
+
+/* ===== V20. Navbar padrão de página, sombras contidas e o saldo com o
+   plano que o sustenta. ===== */
+
+/* NAVBAR. Sobre a hero ela não existe: nenhuma caixa branca, só as palavras
+   do menu sobre o fundo dourado. Passada a primeira rolagem vira cabeçalho
+   cheio, de ponta a ponta, em vez da ilha flutuante que parecia um cartão
+   solto por cima do conteúdo. */
+.landing-v15 .campaign-nav{
+  inset:0 0 auto;
+  padding:0;
+  border-bottom:1px solid transparent;
+  background:none;
+  transition:background .26s ease,box-shadow .26s ease,border-color .26s ease;
+}
+.landing-v15 .nav-shell{
+  width:min(1240px,100%);
+  min-height:78px;
+  padding:0 24px;
+  border:0;
+  border-radius:0;
+  background:none;
+  box-shadow:none;
+  backdrop-filter:none;
+  transition:min-height .26s ease;
+}
+.landing-v15 .campaign-nav.scrolled{
+  border-bottom-color:rgba(201,154,50,.24);
+  background:rgba(255,255,255,.93);
+  box-shadow:0 10px 34px rgba(88,65,17,.07);
+  backdrop-filter:blur(18px);
+}
+.landing-v15 .campaign-nav.scrolled .nav-shell{min-height:66px}
+.landing-v15 .campaign-nav nav a{padding:20px 0}
+.landing-v15 .campaign-nav nav a::after{bottom:13px}
+
+/* SOMBRAS. O deslocamento sólido de 20px nascia inteiro no meio da animação
+   de entrada e encostava na borda da seção, dando o corte torto. Sombra
+   difusa cresce com o cartão e não tem aresta para quebrar. */
+.landing-v15 .product-console{box-shadow:0 26px 62px rgba(103,78,26,.13)}
+.landing-v15 .about-manifesto{box-shadow:0 26px 62px rgba(103,78,26,.17)}
+
+/* A FAIXA CINZA. A marca d'água ACHILLES da hero é o ::before da seção, e
+   herdava de .hero::before (tema escuro) altura fixa e degradê até #090909.
+   Resultado: um bloco escuro que surgia do nada ao rolar a hero. */
+.landing-v15 .campaign-hero::before{right:auto;height:auto;background:none}
+
+/* SALDO. O número é da casa: Anton, como todo número forte do sistema. E vem
+   com o plano em vigência ao lado, porque saldo sozinho não diz se expira. */
+.top-balance{gap:10px;padding:0 14px}
+.top-balance>div{display:grid;gap:1px;min-width:0}
+.top-balance strong{
+  font-family:Anton,Impact,sans-serif;
+  font-weight:400;
+  font-size:23px;
+  line-height:1;
+  letter-spacing:.4px;
+}
+.top-balance small{
+  display:block;
+  overflow:hidden;
+  max-width:16ch;
+  color:var(--gold-deep);
+  font-size:9px;
+  font-weight:800;
+  letter-spacing:.3px;
+  line-height:1.2;
+  text-transform:uppercase;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+@media(max-width:1040px){
+  .landing-v15 .campaign-nav{inset:0 0 auto;padding:0}
+  .landing-v15 .nav-shell{min-height:66px;padding:0 6px 0 18px}
+  .landing-v15 .campaign-nav.scrolled .nav-shell{min-height:60px}
+  /* Menu aberto sobre a hero transparente: o cabeçalho precisa de fundo para
+     o bloco branco do menu não flutuar no nada. */
+  .landing-v15 .campaign-nav.menu-open{
+    border-bottom-color:rgba(201,154,50,.24);
+    background:rgba(255,255,255,.93);
+    backdrop-filter:blur(18px);
+  }
+  .landing-v15 .campaign-nav nav{top:calc(100% + 6px);right:12px;left:12px}
+  /* O padding de 20px acima é para o item de menu em linha; no menu suspenso
+     cada item é uma faixa clicável e mantém o seu. */
+  .landing-v15 .campaign-nav nav a{padding:14px 12px}
+}
+@media(max-width:760px){
+  .landing-v15 .product-console{box-shadow:0 18px 44px rgba(103,78,26,.12)}
+  .landing-v15 .about-manifesto{box-shadow:0 18px 44px rgba(103,78,26,.16)}
+  .top-balance{gap:8px;padding:0 11px}
+  .top-balance strong{font-size:20px}
+  .top-balance small{max-width:13ch}
+}

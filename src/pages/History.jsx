@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import JSZip from 'jszip'
-import { ArrowRight, Download, Search, X } from 'lucide-react'
+import { Archive, ArrowRight, Download, RotateCcw, Search, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { DEMO_MODE } from '../lib/config'
 import { supabase } from '../lib/supabase'
@@ -25,11 +25,14 @@ export default function History(){
   const [selected,setSelected]=useState(null)
   const [urls,setUrls]=useState([])
   const [busy,setBusy]=useState(false)
+  const [verArquivadas,setVerArquivadas]=useState(false)
 
   useEffect(()=>{
     if(DEMO_MODE||!user?.id) return
-    supabase.from('generations').select('*').eq('user_id',user.id).order('created_at',{ascending:false}).limit(200).then(({data})=>setRows(data||[]))
-  },[user?.id])
+    let q=supabase.from('generations').select('*').eq('user_id',user.id)
+    if(!verArquivadas) q=q.is('archived_at',null)
+    q.order('created_at',{ascending:false}).limit(200).then(({data})=>setRows(data||[]))
+  },[user?.id,verArquivadas])
 
   const filtered=useMemo(()=>rows.filter(r=>(format==='all'||r.format===format)&&String(r.theme||'').toLowerCase().includes(query.toLowerCase())),[rows,query,format])
 
@@ -72,11 +75,14 @@ export default function History(){
       <div className="filters">
         <label><Search size={17}/><input placeholder="Buscar por tema" value={query} onChange={e=>setQuery(e.target.value)}/></label>
         <select value={format} onChange={e=>setFormat(e.target.value)}><option value="all">Todos os formatos</option><option value="post">Post</option><option value="story">Story</option><option value="carousel">Carrossel</option></select>
+        <button type="button" className={`small-btn ${verArquivadas?'ok':''}`} onClick={()=>setVerArquivadas(v=>!v)}>
+          <Archive size={15}/>{verArquivadas?'MOSTRANDO ARQUIVADAS':'VER ARQUIVADAS'}
+        </button>
       </div>
       <div className="history-list">
         {filtered.map(r=><button key={r.id} onClick={()=>open(r)}>
           <div><strong>{r.theme}</strong><span>{r.format} · {dateTime(r.created_at)}</span></div>
-          <div><b>{number((r.copy_cost||0)+(r.image_cost||0))} cr</b><span className={r.status==='images_ready'?'on':r.status==='failed'?'off':''}>{STATUS[r.status]||r.status}</span></div>
+          <div><b>{number((r.copy_cost||0)+(r.image_cost||0))} cr</b><span className={r.status==='images_ready'?'on':r.status==='failed'?'off':''}>{r.archived_at?'Arquivada':(STATUS[r.status]||r.status)}</span></div>
         </button>)}
         {!filtered.length&&<div className="empty">Nenhuma geração encontrada.</div>}
       </div>
@@ -98,7 +104,21 @@ export default function History(){
       <div className="thumb-grid">{urls.map((x,i)=><figure key={i}><img src={x.url} alt={`Arte ${x.position}`} loading="lazy"/><button onClick={()=>download(x.url,x.name)}><Download size={16}/>Baixar</button></figure>)}</div>
       {urls.length>0&&<button className="btn primary" onClick={all}><Download size={17}/>BAIXAR TODAS EM ZIP</button>}
 
-      {['copy_ready','copy_approved','processing','failed','copy_queued'].includes(selected.status)&&selected.copy_json&&
+      {selected.archived_at&&<div className="resume-box">
+          <strong>Esta geração está arquivada.</strong>
+          <p>Ela fica fora da lista principal. Desarquive para voltar a trabalhar nela.</p>
+          <button className="btn secondary" disabled={busy} onClick={async()=>{
+            setBusy(true)
+            try{
+              await api('archive-generation',{method:'POST',body:{generation_id:selected.id,archived:false}})
+              notify.success('Geração desarquivada.')
+              setSelected(s=>({...s,archived_at:null})); setVerArquivadas(v=>v)
+              setRows(r=>r.map(x=>x.id===selected.id?{...x,archived_at:null}:x))
+            }catch(e){ notify.error(e.message) } finally{ setBusy(false) }
+          }}><RotateCcw size={16}/>DESARQUIVAR</button>
+        </div>}
+
+      {!selected.archived_at&&['copy_ready','copy_approved','processing','failed','copy_queued'].includes(selected.status)&&selected.copy_json&&
         <div className="resume-box">
           <strong>{selected.status==='failed'?'Esta geração falhou nas artes.':selected.status==='processing'?'Esta geração ainda está em andamento.':'Esta copy ainda não virou arte.'}</strong>
           <p>{selected.status==='failed'

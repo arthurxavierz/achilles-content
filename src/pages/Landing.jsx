@@ -66,10 +66,21 @@ const faqs = [
 export default function Landing() {
   const [open, setOpen] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
   const [plans, setPlans] = useState(DEFAULT_PLANS)
   const [packs, setPacks] = useState(DEFAULT_PACKS)
   const [pricing, setPricing] = useState(DEFAULT_PRICING)
   const [presets, setPresets] = useState(DEFAULT_PRESETS)
+
+  // A navbar nao existe sobre a hero: so as palavras do menu sobre o fundo
+  // dourado. Passada a primeira rolagem ela vira cabecalho cheio, ocupando a
+  // largura toda, que e o padrao que o resto da pagina espera.
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 24)
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
 
   // A landing le o catalogo publico. Reajuste de preco no banco aparece aqui
   // sem precisar de deploy.
@@ -93,7 +104,7 @@ export default function Landing() {
   const closeMenu = () => setMenuOpen(false)
 
   return <div className="landing landing-v15">
-    <header className="public-nav campaign-nav">
+    <header className={`public-nav campaign-nav${scrolled ? ' scrolled' : ''}${menuOpen ? ' menu-open' : ''}`}>
       <div className="nav-shell">
         <Link to="/" className="wordmark" onClick={closeMenu}><img src="/wordmark.png" alt="Achilles" /><small>CONTENT</small></Link>
         <nav id="landing-navigation" className={menuOpen ? 'open' : ''}>

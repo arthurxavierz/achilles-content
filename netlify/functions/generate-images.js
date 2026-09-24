@@ -33,7 +33,8 @@ export async function handler(event){
     const item=priceOf(catalog,imageSlug(quality))
     // O modelo vem da faixa de preco: Padrao e Assinatura usam motores diferentes.
     const model=imageModelOf(item,settings)
-    const count=imageCount(g.format)
+    // A contagem vem da geracao, decidida quando a copy foi criada.
+    const count=imageCount(g.format,g.image_count)
     const each=item.credits
     const cost=each*count
 

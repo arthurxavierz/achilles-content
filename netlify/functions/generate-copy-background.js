@@ -10,9 +10,12 @@ const field=(label,value)=>value?`${label}: ${value}`:null
 
 // O estilo e sugestao da plataforma. Se a marca escreveu as proprias
 // regras, elas substituem o padrao por inteiro.
-function buildPrompt({theme,format,brand,defaultStyle}){
+function buildPrompt({theme,format,brand,defaultStyle,slideCount}){
   const style=String(brand?.copy_rules||'').trim() || defaultStyle || ''
-  const slides=format==='carousel'?'exatamente 5 slides encadeados, cada um avançando o raciocínio do anterior':'exatamente 1 slide'
+  const n=Math.max(1,Number(slideCount)||1)
+  const slides=format==='carousel'
+    ? `exatamente ${n} ${n===1?'slide':'slides'} encadeados, cada um avançando o raciocínio do anterior`
+    : 'exatamente 1 slide'
   const marca=[
     field('Marca',brand?.brand_name), field('Segmento',brand?.segment),
     field('Público',brand?.audience), field('Tom de voz',brand?.tone),
@@ -57,7 +60,7 @@ export async function handler(event){
 
     const raw=await openaiFetch('https://api.openai.com/v1/responses',
       {method:'POST',headers:{authorization:`Bearer ${process.env.OPENAI_API_KEY}`,'content-type':'application/json'},
-       body:JSON.stringify({model:process.env.OPENAI_TEXT_MODEL,input:buildPrompt({theme:g.theme,format:g.format,brand,defaultStyle:settings.copy_style_default}),text:{format:{type:'json_schema',name:'content_copy',strict:true,schema}}})},
+       body:JSON.stringify({model:process.env.OPENAI_TEXT_MODEL,input:buildPrompt({theme:g.theme,format:g.format,brand,defaultStyle:settings.copy_style_default,slideCount:g.image_count}),text:{format:{type:'json_schema',name:'content_copy',strict:true,schema}}})},
       {label:'copy',timeoutMs:Number(settings.openai_text_timeout_ms||90000),retries:Number(settings.openai_retries??2)})
 
     const output=raw.output_text||raw.output?.flatMap(x=>x.content||[]).find(x=>x.type==='output_text')?.text

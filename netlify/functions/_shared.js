@@ -49,7 +49,15 @@ export function priceOf(catalog,slug){
 export const FORMATS = Object.freeze(['post','story','carousel'])
 export const copySlug = format => format==='carousel' ? 'copy_carousel' : format==='story' ? 'copy_story' : 'copy_post'
 export const imageSlug = quality => quality==='signature' ? 'image_signature' : 'image_standard'
-export const imageCount = format => format==='carousel' ? 5 : 1
+// Carrossel passa a ter tamanho escolhido pelo cliente, de 1 a 5. Post e
+// story continuam sendo uma peca so, por definicao do formato.
+export const CAROUSEL_MAX = 5
+export function imageCount(format,requested){
+  if(format!=='carousel') return 1
+  const n=Number(requested)
+  if(!Number.isFinite(n)) return CAROUSEL_MAX
+  return Math.min(CAROUSEL_MAX, Math.max(1, Math.round(n)))
+}
 // A familia gpt-image-2.5 aceita dimensao customizada: lados multiplos de
 // 16, proporcao entre 1:3 e 3:1 e area entre 655.360 e 8.294.400 pixels.
 // Com isso o feed sai em 4:5 nativo e o recorte deixa de existir.

@@ -8,7 +8,8 @@ export const DEFAULT_PRICING = Object.freeze({
   copy_carousel: { slug:'copy_carousel', label:'Copy de carrossel', kind:'copy', credits:150 },
   image_standard: { slug:'image_standard', label:'Imagem Padrão', kind:'image', credits:100, image_quality:'medium', description:'Arte de fundo em qualidade de publicação.' },
   image_signature: { slug:'image_signature', label:'Imagem Assinatura', kind:'image', credits:300, image_quality:'high', description:'Máxima fidelidade, direção de arte guiada por referências.' },
-  brand_analysis: { slug:'brand_analysis', label:'Análise de marca', kind:'analysis', credits:300 }
+  brand_analysis: { slug:'brand_analysis', label:'Análise de marca', kind:'analysis', credits:300 },
+  theme_suggestion: { slug:'theme_suggestion', label:'Sugestão de tema', kind:'copy', credits:50 }
 })
 
 export const DEFAULT_PRESETS = Object.freeze([
@@ -39,8 +40,14 @@ export const qualityOf = slug => QUALITIES.find(q => q.slug === slug) || QUALITI
 export const creditsOf = (pricing, slug) => Number(pricing?.[slug]?.credits ?? DEFAULT_PRICING[slug]?.credits ?? 0)
 export const copyCredits = (pricing, format) => creditsOf(pricing, formatOf(format).copySlug)
 export const imageCredits = (pricing, quality) => creditsOf(pricing, qualityOf(quality).pricingSlug)
-export const imagesCredits = (pricing, format, quality) => imageCredits(pricing, quality) * formatOf(format).imageCount
-export const totalCredits = (pricing, format, quality) => copyCredits(pricing, format) + imagesCredits(pricing, format, quality)
+// Carrossel tem tamanho escolhido pelo cliente; post e story sao uma peca.
+export const CAROUSEL_MAX = 5
+export const artCount = (format, requested) => format === 'carousel'
+  ? Math.min(CAROUSEL_MAX, Math.max(1, Math.round(Number(requested) || CAROUSEL_MAX)))
+  : 1
+export const imagesCredits = (pricing, format, quality, count) => imageCredits(pricing, quality) * artCount(format, count)
+export const totalCredits = (pricing, format, quality, count) => copyCredits(pricing, format) + imagesCredits(pricing, format, quality, count)
+export const themeCredits = pricing => creditsOf(pricing, 'theme_suggestion')
 
 // Planos e pacotes iniciais. Espelham supabase/migration-v5.sql.
 export const DEFAULT_PLANS = Object.freeze([
