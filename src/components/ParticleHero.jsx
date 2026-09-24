@@ -1,24 +1,38 @@
 import React, { useEffect, useRef } from 'react'
 
-// Fundo animado da hero, no tema claro.
+// Fundo animado da hero, sobre o dourado.
 //
-// Em fundo creme a regra se inverte: a partícula precisa ser ouro escuro,
-// e o modo "lighter" não serve, porque somar luz sobre branco não produz
-// nada. Tudo aqui é source-over com alfa contido.
+// A marca é o assunto: as partículas convergem para o desenho exato de
+// /logo.png e param em cima dele. O resto da cena existe para dar
+// profundidade ao dourado, nunca para disputar leitura com o título.
 //
-// Cinco camadas, um canvas, um loop:
-//  1. Aura: manchas douradas que derivam devagar e aquecem o creme.
-//  2. Poeira: motes com teias entre vizinhos próximos e cintilação.
-//  3. Feixes: partículas que correm de fora para dentro alimentando a marca.
-//  4. Marca: partículas que convergem para o desenho da logo. Os alvos saem
-//     do canal alpha de /logo.png, então se a marca mudar, a formação muda.
-//  5. Varredura: uma faixa de luz percorre a marca depois de formada.
+// Três camadas, um canvas, um loop:
+//  1. Brilho: manchas quentes que derivam devagar sobre o dourado.
+//  2. Poeira: motes de luz que sobem devagar e cintilam.
+//  3. Marca: partículas que convergem para o desenho da logo.
 //
-// A cada ciclo um pulso espalha tudo e o desenho se refaz.
+// Quatro decisões que valem registro:
+//
+// Nada aqui acompanha o cursor. O paralaxe de antes obrigava a recalcular a
+// cena inteira a cada movimento do mouse, e o que o olho via era atraso, não
+// resposta. Movimento de fundo não precisa de interação.
+//
+// Não há mais teia entre partículas vizinhas. Ligar cada mote a cada outro é
+// trabalho quadrático: 120 motes custavam 7 mil medidas de distância por
+// quadro para produzir linhas que quase não se viam.
+//
+// Os alvos saem de uma GRADE sobre o desenho, não de um sorteio. Sorteio
+// deixa aglomerado e buraco, e o contorno vira mancha; grade cobre parelho,
+// e é isso que faz a nuvem virar a logo de verdade. O passo da grade é
+// calculado do tamanho que a marca tem na tela, então o espaçamento entre
+// partículas é o mesmo no monitor e no celular.
+//
+// E cada partícula é uma imagem pronta, desenhada com drawImage, em vez de
+// um arco traçado de novo a cada quadro. São milhares por quadro: o custo de
+// abrir caminho e preencher, multiplicado por isso, é o que trava.
 
-const PULSE_MS = 10000
-const GOLD = '157,112,23'      // --gold-deep
-const GOLD_LIT = '201,154,50'  // --gold
+const PULSE_MS = 11000
+const MAX_MARKS = 2700
 
 export default function ParticleHero() {
   const canvasRef = useRef(null)
@@ -31,10 +45,27 @@ export default function ParticleHero() {
 
     const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches
     let width = 0, height = 0
-    let motes = [], marks = [], beams = [], targets = []
+    let motes = [], marks = [], mask = null, dotR = 2.6
     let raf = 0, last = 0, elapsed = 0, pulse = -1
     let visible = true, running = true
-    let pointerX = 0, pointerY = 0, parX = 0, parY = 0
+
+    // Duas moedas de luz, desenhadas uma vez. Núcleo cheio e borda macia:
+    // cheia demais serrilha, macia demais borra o contorno da marca.
+    function sprite(r, g, b) {
+      const S = 64
+      const off = document.createElement('canvas')
+      off.width = off.height = S
+      const c = off.getContext('2d')
+      const grad = c.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2)
+      grad.addColorStop(0, `rgba(${r},${g},${b},1)`)
+      grad.addColorStop(0.58, `rgba(${r},${g},${b},1)`)
+      grad.addColorStop(1, `rgba(${r},${g},${b},0)`)
+      c.fillStyle = grad
+      c.fillRect(0, 0, S, S)
+      return off
+    }
+    const dotLight = sprite(255, 255, 255)
+    const dotWarm = sprite(255, 244, 214)
 
     function resize() {
       const rect = canvas.getBoundingClientRect()
@@ -45,46 +76,51 @@ export default function ParticleHero() {
       canvas.height = Math.round(height * dpr)
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
       seed()
-      placeTargets()
+      buildTargets()
     }
 
-    // A hero é centralizada, então a marca fica atrás do texto, grande e
-    // discreta. O brilho branco central do CSS preserva a leitura.
+    // A hero é centralizada, então a marca fica atrás do texto.
     function markBox() {
-      const h = Math.min(height * 0.86, 700)
+      const h = Math.min(height * 0.82, 660)
       return { w: h * 0.34, h, cx: width / 2, cy: height * 0.5 }
     }
 
     function seed() {
-      const n = Math.min(120, Math.round((width * height) / 13000))
+      const n = Math.min(70, Math.round((width * height) / 26000))
       motes = Array.from({ length: n }, () => ({
         x: Math.random() * width, y: Math.random() * height,
-        vx: (Math.random() - 0.5) * 0.17, vy: (Math.random() - 0.5) * 0.17,
-        r: Math.random() * 1.4 + 0.4, a: Math.random() * 0.26 + 0.1,
+        vx: (Math.random() - 0.5) * 0.1, vy: -(0.05 + Math.random() * 0.12),
+        r: Math.random() * 1.3 + 0.5, a: Math.random() * 0.3 + 0.12,
         tw: Math.random() * Math.PI * 2, tws: 0.4 + Math.random() * 1.2
       }))
-      beams = Array.from({ length: Math.min(24, Math.round(n / 4)) }, () => spawnBeam(true))
     }
 
-    function spawnBeam(anywhere) {
+    function buildTargets() {
+      if (!mask) return
       const box = markBox()
-      const angle = Math.random() * Math.PI * 2
-      const far = Math.max(width, height) * (anywhere ? 0.3 + Math.random() * 0.7 : 0.8)
-      return {
-        x: box.cx + Math.cos(angle) * far,
-        y: box.cy + Math.sin(angle) * far,
-        t: anywhere ? Math.random() : 0,
-        speed: 0.0015 + Math.random() * 0.0026,
-        r: Math.random() * 1.1 + 0.45,
-        tx: box.cx + (Math.random() - 0.5) * box.w,
-        ty: box.cy + (Math.random() - 0.5) * box.h
+      const scale = box.w / mask.w
+      // No celular a marca ocupa quase a mesma altura, então o alívio não
+      // pode vir do tamanho: vem de espalhar mais as partículas.
+      const spacing = width < 700 ? 8 : 6
+      let step = Math.max(2, Math.round(spacing / scale))
+
+      const collect = s => {
+        const found = []
+        for (let y = 0; y < mask.h; y += s) {
+          for (let x = 0; x < mask.w; x += s) {
+            if (mask.bits[y * mask.w + x]) found.push({ x: x / mask.w, y: y / mask.h })
+          }
+        }
+        return found
       }
-    }
+      let found = collect(step)
+      while (found.length > MAX_MARKS) { step += 1; found = collect(step) }
 
-    function placeTargets() {
-      if (!targets.length) return
-      const box = markBox()
-      marks = targets.map((t, i) => {
+      // O raio segue o espaçamento real na tela: as moedas quase se tocam,
+      // o que dá desenho contínuo sem virar borrão.
+      dotR = Math.max(1.5, step * scale * 0.58)
+
+      marks = found.map((t, i) => {
         const tx = box.cx + (t.x - 0.5) * box.w
         const ty = box.cy + (t.y - 0.5) * box.h
         const old = marks[i]
@@ -94,33 +130,30 @@ export default function ParticleHero() {
           y: old ? old.y : box.cy + (Math.random() - 0.5) * height,
           vx: old ? old.vx : 0, vy: old ? old.vy : 0,
           phase: old ? old.phase : Math.random() * Math.PI * 2,
-          r: Math.random() * 1.25 + 0.5,
+          jitter: 0.86 + Math.random() * 0.28,
           ny: t.y
         }
       })
     }
 
+    // Guarda o desenho como mapa de bits uma vez. O corte de alpha é alto de
+    // propósito: pega o miolo da marca e descarta a borda esfumada.
     function loadMark() {
       const img = new Image()
       img.onload = () => {
-        const S = 150
+        const S = 174
         const off = document.createElement('canvas')
-        off.width = S; off.height = Math.round(S * img.height / img.width)
+        off.width = S
+        off.height = Math.max(1, Math.round(S * img.height / img.width))
         const octx = off.getContext('2d', { willReadFrequently: true })
         if (!octx) return
         octx.drawImage(img, 0, 0, off.width, off.height)
         let data
         try { data = octx.getImageData(0, 0, off.width, off.height).data } catch { return }
-        const found = []
-        for (let y = 0; y < off.height; y += 2)
-          for (let x = 0; x < off.width; x += 2)
-            if (data[(y * off.width + x) * 4 + 3] > 130) found.push({ x: x / off.width, y: y / off.height })
-        for (let i = found.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1))
-          ;[found[i], found[j]] = [found[j], found[i]]
-        }
-        targets = found.slice(0, 520)
-        placeTargets()
+        const bits = new Uint8Array(off.width * off.height)
+        for (let i = 0; i < bits.length; i++) bits[i] = data[i * 4 + 3] > 150 ? 1 : 0
+        mask = { w: off.width, h: off.height, bits }
+        buildTargets()
       }
       img.src = '/logo.png'
     }
@@ -141,110 +174,86 @@ export default function ParticleHero() {
       const k = dt / 16.67
       const t = elapsed / 1000
       ctx.clearRect(0, 0, width, height)
-
-      parX += (pointerX - parX) * 0.04 * k
-      parY += (pointerY - parY) * 0.04 * k
+      ctx.globalAlpha = 1
 
       const box = markBox()
-      const cx = box.cx + parX * 22, cy = box.cy + parY * 16
 
-      // --- 1. aura ---
+      // --- 1. brilho quente ---
       for (const a of [
-        { x: cx + Math.cos(t * 0.17) * width * 0.16, y: cy + Math.sin(t * 0.21) * height * 0.14, r: box.h * 0.95, a: 0.10 },
-        { x: cx + Math.cos(t * 0.11 + 2) * width * 0.22, y: cy + Math.sin(t * 0.14 + 1) * height * 0.18, r: box.h * 0.75, a: 0.075 }
+        { x: box.cx + Math.cos(t * 0.15) * width * 0.2, y: box.cy + Math.sin(t * 0.19) * height * 0.16, r: box.h * 0.95, a: 0.12 },
+        { x: box.cx + Math.cos(t * 0.1 + 2) * width * 0.26, y: box.cy + Math.sin(t * 0.13 + 1) * height * 0.2, r: box.h * 0.7, a: 0.08 }
       ]) {
         const g = ctx.createRadialGradient(a.x, a.y, 0, a.x, a.y, a.r)
-        g.addColorStop(0, `rgba(${GOLD_LIT},${a.a})`)
-        g.addColorStop(0.5, `rgba(${GOLD},${a.a * 0.4})`)
-        g.addColorStop(1, `rgba(${GOLD},0)`)
+        g.addColorStop(0, `rgba(255,244,214,${a.a})`)
+        g.addColorStop(1, 'rgba(255,244,214,0)')
         ctx.fillStyle = g
         ctx.fillRect(a.x - a.r, a.y - a.r, a.r * 2, a.r * 2)
       }
 
-      // --- 2. poeira e teias ---
+      // --- 2. poeira de luz ---
+      let alpha = -1
       for (const m of motes) {
-        m.x += m.vx * k; m.y += m.vy * k; m.tw += 0.02 * m.tws * k
-        if (m.x < -20) m.x = width + 20; else if (m.x > width + 20) m.x = -20
-        if (m.y < -20) m.y = height + 20; else if (m.y > height + 20) m.y = -20
-      }
-      ctx.lineWidth = 1
-      for (let i = 0; i < motes.length; i++) {
-        const a = motes[i]
-        for (let j = i + 1; j < motes.length; j++) {
-          const b = motes[j]
-          const dx = a.x - b.x, dy = a.y - b.y, d2 = dx * dx + dy * dy
-          if (d2 < 15000) {
-            ctx.strokeStyle = `rgba(${GOLD},${0.07 * (1 - d2 / 15000)})`
-            ctx.beginPath(); ctx.moveTo(a.x + parX * 7, a.y + parY * 5); ctx.lineTo(b.x + parX * 7, b.y + parY * 5); ctx.stroke()
-          }
-        }
-        const twinkle = 0.6 + 0.4 * Math.sin(a.tw)
-        ctx.fillStyle = `rgba(${GOLD},${a.a * twinkle})`
-        ctx.beginPath(); ctx.arc(a.x + parX * 7, a.y + parY * 5, a.r, 0, Math.PI * 2); ctx.fill()
+        m.x += m.vx * k
+        m.y += m.vy * k
+        m.tw += 0.02 * m.tws * k
+        if (m.x < -20) m.x = width + 20
+        else if (m.x > width + 20) m.x = -20
+        if (m.y < -20) m.y = height + 20
+        const a = Math.round(m.a * (0.55 + 0.45 * Math.sin(m.tw)) * 32) / 32
+        if (a !== alpha) { alpha = a; ctx.globalAlpha = a }
+        ctx.drawImage(dotLight, m.x - m.r, m.y - m.r, m.r * 2, m.r * 2)
       }
 
-      // --- 3. feixes alimentando a marca ---
-      for (const b of beams) {
-        b.t += b.speed * k
-        if (b.t >= 1) { Object.assign(b, spawnBeam(false)); continue }
-        const e = 1 - Math.pow(1 - b.t, 2.2)
-        const x = b.x + (b.tx + parX * 22 - b.x) * e
-        const y = b.y + (b.ty + parY * 16 - b.y) * e
-        const px = b.x + (b.tx + parX * 22 - b.x) * Math.max(0, e - 0.055)
-        const py = b.y + (b.ty + parY * 16 - b.y) * Math.max(0, e - 0.055)
-        const fade = Math.sin(Math.min(1, b.t) * Math.PI)
-        const grad = ctx.createLinearGradient(px, py, x, y)
-        grad.addColorStop(0, `rgba(${GOLD},0)`)
-        grad.addColorStop(1, `rgba(${GOLD},${0.42 * fade})`)
-        ctx.strokeStyle = grad; ctx.lineWidth = b.r
-        ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(x, y); ctx.stroke()
-      }
+      // --- 3. a marca se formando ---
+      // Atração forte e atrito alto: a partícula chega e fica parada em cima
+      // do alvo. Com atração fraca ela orbita, e orbitando o contorno borra.
+      const settle = Math.min(1, sincePulse / 2)
+      const pull = 0.01 + 0.1 * settle * settle
+      const burst = sincePulse < 0.4 ? (1 - sincePulse / 0.4) * 6.5 : 0
+      const sweep = sincePulse > 2.8 ? ((sincePulse - 2.8) % 4.5) / 4.5 : -1
 
-      // --- 4. a marca se formando ---
-      const settle = Math.min(1, sincePulse / 2.4)
-      const pull = 0.006 + 0.052 * settle * settle
-      const burst = sincePulse < 0.45 ? (1 - sincePulse / 0.45) * 7 : 0
-      const sweep = sincePulse > 3 ? ((sincePulse - 3) % 4) / 4 : -1
-
+      alpha = -1
       for (const p of marks) {
-        p.phase += 0.014 * k
-        const tx = p.tx + parX * 22, ty = p.ty + parY * 16
-        const dx = tx - p.x, dy = ty - p.y
-        p.vx += dx * pull * k; p.vy += dy * pull * k
+        p.phase += 0.01 * k
+        const dx = p.tx - p.x, dy = p.ty - p.y
+        p.vx += dx * pull * k
+        p.vy += dy * pull * k
         if (burst) {
           const d = Math.hypot(dx, dy) || 1
           p.vx -= (dx / d) * burst * Math.random() * k
           p.vy -= (dy / d) * burst * Math.random() * k
         }
-        p.vx += Math.cos(p.phase) * 0.018 * k
-        p.vy += Math.sin(p.phase * 1.3) * 0.018 * k
-        p.vx *= 0.9; p.vy *= 0.9
-        p.x += p.vx * k; p.y += p.vy * k
+        p.vx += Math.cos(p.phase) * 0.005 * k
+        p.vy += Math.sin(p.phase * 1.3) * 0.005 * k
+        p.vx *= 0.82
+        p.vy *= 0.82
+        p.x += p.vx * k
+        p.y += p.vy * k
 
-        const near = 1 - Math.min(1, Math.hypot(tx - p.x, ty - p.y) / 70)
-        // Alfa contido: a marca fica atrás do texto e não pode disputar leitura.
-        let alpha = 0.07 + near * 0.30
-        let radius = p.r * (0.7 + near * 0.55)
+        const near = 1 - Math.min(1, Math.hypot(p.tx - p.x, p.ty - p.y) / 60)
+        // Formada, a marca é nítida; mas fica atrás do título, então o teto
+        // de alfa é o que o texto branco aguenta ter por trás.
+        let a = 0.05 + near * near * 0.4
+        let r = dotR * p.jitter * (0.66 + near * 0.34)
         if (sweep >= 0) {
           const d = Math.abs(p.ny - sweep)
-          if (d < 0.09) { const f = 1 - d / 0.09; alpha += f * 0.26; radius *= 1 + f * 0.6 }
+          if (d < 0.08) {
+            const f = 1 - d / 0.08
+            a += f * near * 0.28
+            r *= 1 + f * 0.35
+          }
         }
-        ctx.fillStyle = `rgba(${near > 0.5 ? GOLD : GOLD_LIT},${alpha})`
-        ctx.beginPath(); ctx.arc(p.x, p.y, radius, 0, Math.PI * 2); ctx.fill()
+        a = Math.round(Math.min(1, a) * 32) / 32
+        if (a !== alpha) { alpha = a; ctx.globalAlpha = a }
+        ctx.drawImage(near > 0.6 ? dotLight : dotWarm, p.x - r, p.y - r, r * 2, r * 2)
       }
+      ctx.globalAlpha = 1
     }
 
     const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting }, { threshold: 0 })
     io.observe(canvas)
     const onVisibility = () => { visible = !document.hidden }
     document.addEventListener('visibilitychange', onVisibility)
-
-    const onPointer = e => {
-      if (e.pointerType === 'touch') return
-      pointerX = (e.clientX / innerWidth - 0.5) * 2
-      pointerY = (e.clientY / innerHeight - 0.5) * 2
-    }
-    window.addEventListener('pointermove', onPointer, { passive: true })
 
     const ro = new ResizeObserver(resize)
     ro.observe(canvas)
@@ -254,13 +263,17 @@ export default function ParticleHero() {
     const cleanup = () => {
       running = false
       cancelAnimationFrame(raf)
-      ro.disconnect(); io.disconnect()
+      ro.disconnect()
+      io.disconnect()
       document.removeEventListener('visibilitychange', onVisibility)
-      window.removeEventListener('pointermove', onPointer)
     }
 
+    // Sem animação: desenha a marca já formada e para.
     if (reduced) {
-      const timer = setTimeout(() => { for (let i = 0; i < 240; i++) draw(16.67, 99); draw(16.67, 99) }, 260)
+      const timer = setTimeout(() => {
+        for (let i = 0; i < 240; i++) draw(16.67, 99)
+        draw(16.67, 99)
+      }, 260)
       return () => { clearTimeout(timer); cleanup() }
     }
 

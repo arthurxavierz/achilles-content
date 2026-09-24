@@ -2459,6 +2459,14 @@ body{
     backdrop-filter:blur(18px);
   }
   .landing-v15 .campaign-nav nav{top:calc(100% + 6px);right:12px;left:12px}
+  /* Com o menu aberto o cabecalho fica branco, entao o conteudo dele volta
+     a ser escuro: branco sobre branco sumia. */
+  .landing-v15 .campaign-nav.menu-open:not(.scrolled) .wordmark img{filter:brightness(0);opacity:.92}
+  .landing-v15 .campaign-nav.menu-open:not(.scrolled) .wordmark small{color:var(--gold-deep)}
+  .landing-v15 .campaign-nav.menu-open:not(.scrolled) nav a{color:#5e584d}
+  .landing-v15 .campaign-nav.menu-open:not(.scrolled) nav a:hover{color:var(--ink)}
+  .landing-v15 .campaign-nav.menu-open:not(.scrolled) .nav-start{color:#fff;background:var(--ink)}
+  .landing-v15 .campaign-nav.menu-open:not(.scrolled) .nav-toggle{color:var(--ink);border-color:var(--line)}
   /* O padding de 20px acima é para o item de menu em linha; no menu suspenso
      cada item é uma faixa clicável e mantém o seu. */
   .landing-v15 .campaign-nav nav a{padding:14px 12px}
@@ -2469,4 +2477,172 @@ body{
   .top-balance{gap:8px;padding:0 11px}
   .top-balance strong{font-size:20px}
   .top-balance small{max-width:13ch}
+}
+
+/* ===== V21. Hero no dourado da última chamada, e a vitrine da comunidade. ===== */
+
+/* A HERO VESTE O DOURADO DA ÚLTIMA CHAMADA. Mesmo gradiente da faixa de
+   contato, com um miolo mais fechado para o título branco ter o que o
+   separe do fundo. */
+.landing-v15 .campaign-hero{
+  color:#fff;
+  background:
+    radial-gradient(ellipse 72% 58% at 50% 47%,rgba(120,82,12,.3),transparent 70%),
+    radial-gradient(circle at 16% 12%,rgba(255,240,199,.2),transparent 44%),
+    linear-gradient(135deg,#b98119,#d9b251);
+}
+/* Emenda seca com a faixa branca de baixo: as seções desta página são
+   faixas de borda reta, e o esfumado de antes fazia o dourado parecer
+   vazamento. */
+.landing-v15 .campaign-hero::after{background:none}
+/* A marca d'água muda de lado: sobre dourado ela é luz, não sombra. */
+.landing-v15 .campaign-hero::before{color:rgba(255,255,255,.07)}
+.landing-v15 .campaign-hero-inner h1{color:#fff}
+.landing-v15 .campaign-hero-inner p{color:rgba(255,255,255,.92)}
+.landing-v15 .campaign-hero .eyebrow{color:#fff7dd}
+.landing-v15 .campaign-hero .btn.primary{
+  color:var(--ink);
+  background:#fff;
+  border-color:#fff;
+}
+.landing-v15 .campaign-hero .btn.primary:hover{background:#fff7e4;border-color:#fff7e4}
+.landing-v15 .campaign-hero .btn.secondary{
+  color:#fff;
+  background:transparent;
+  border-color:rgba(255,255,255,.62);
+}
+.landing-v15 .campaign-hero .btn.secondary:hover{background:rgba(255,255,255,.12);border-color:#fff}
+.landing-v15 .hero-scroll{color:rgba(255,255,255,.72)}
+.landing-v15 .hero-scroll i{background:linear-gradient(rgba(255,255,255,.85),transparent)}
+
+/* NAVBAR SOBRE O DOURADO. Enquanto está sobre a hero ela é branca; rolou,
+   volta a ser o cabeçalho claro de antes, com texto escuro. */
+.landing-v15 .campaign-nav:not(.scrolled) .wordmark img{filter:brightness(0) invert(1);opacity:1}
+.landing-v15 .campaign-nav:not(.scrolled) .wordmark small{color:#fff7dd}
+.landing-v15 .campaign-nav:not(.scrolled) nav a{color:rgba(255,255,255,.88)}
+.landing-v15 .campaign-nav:not(.scrolled) nav a:hover{color:#fff}
+.landing-v15 .campaign-nav:not(.scrolled) nav a::after{background:#fff}
+.landing-v15 .campaign-nav:not(.scrolled) .nav-login{color:#fff}
+.landing-v15 .campaign-nav:not(.scrolled) .nav-start{color:var(--ink);background:#fff}
+.landing-v15 .campaign-nav:not(.scrolled) .nav-start:hover{background:#fff7e4}
+.landing-v15 .campaign-nav:not(.scrolled) .nav-toggle{
+  color:#fff;
+  background:transparent;
+  border-color:rgba(255,255,255,.5);
+}
+
+/* VITRINE DA COMUNIDADE. Três peças na tela, a do meio em escala cheia.
+   A trilha inteira é renderizada e deslocada por transform: a conta é toda
+   em medida concreta, então o mesmo cálculo serve em qualquer largura. */
+.landing-v15 .community-band{background:var(--paper-warm)}
+.rail{
+  --slide:clamp(168px,23vw,308px);
+  --gap:clamp(12px,2.2vw,28px);
+  position:relative;
+}
+.rail-window{
+  position:relative;
+  height:calc(var(--slide) * 1.25);
+  overflow:hidden;
+  /* As pontas somem em vez de bater na borda da seção. */
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);
+  mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);
+}
+.rail-track{
+  position:absolute;
+  top:0;
+  left:50%;
+  height:100%;
+  display:flex;
+  align-items:center;
+  gap:var(--gap);
+  transform:translateX(calc(var(--slide) / -2 - (var(--slide) + var(--gap)) * var(--i)));
+  transition:transform .78s cubic-bezier(.22,.7,.2,1);
+  will-change:transform;
+}
+.rail-track.no-move{transition:none}
+.rail-card{
+  flex:0 0 var(--slide);
+  position:relative;
+  margin:0;
+  aspect-ratio:4/5;
+  overflow:hidden;
+  border:1px solid var(--gold-pale);
+  border-radius:10px;
+  background:#fff;
+  transform:scale(.8);
+  opacity:.5;
+  transition:transform .78s cubic-bezier(.22,.7,.2,1),opacity .78s ease,box-shadow .78s ease;
+}
+.rail-card.is-active{
+  transform:scale(1);
+  opacity:1;
+  box-shadow:0 26px 62px rgba(103,78,26,.2);
+}
+.rail-card img{width:100%;height:100%;object-fit:cover;display:block}
+.rail-card figcaption{
+  position:absolute;
+  right:0;
+  bottom:0;
+  left:0;
+  padding:22px 14px 12px;
+  color:#fff;
+  background:linear-gradient(transparent,rgba(23,21,15,.72));
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:.2px;
+}
+/* Enquanto o arquivo não existe, a placa da marca no lugar do ícone de
+   imagem quebrada. */
+.rail-fallback{
+  display:grid;
+  place-content:center;
+  justify-items:center;
+  gap:12px;
+  height:100%;
+  background:linear-gradient(150deg,#fff,#f7efd9);
+}
+.rail-fallback img{width:34px;height:auto;opacity:.5}
+.rail-fallback span{color:var(--gold-deep);font-size:10px;font-weight:800;letter-spacing:.4px}
+.rail-controls{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:16px;
+  margin-top:30px;
+}
+.rail-controls>button{
+  display:grid;
+  place-items:center;
+  width:44px;
+  height:44px;
+  color:var(--ink);
+  border:1px solid var(--line);
+  border-radius:8px;
+  background:#fff;
+}
+.rail-controls>button:hover{color:var(--gold-deep);border-color:var(--gold)}
+.rail-dots{display:flex;align-items:center;gap:7px}
+.rail-dots button{
+  width:7px;
+  height:7px;
+  padding:0;
+  border:0;
+  border-radius:50%;
+  background:#dbceb2;
+}
+.rail-dots button.on{width:22px;border-radius:99px;background:var(--gold-deep)}
+
+@media(max-width:860px){
+  .rail{--slide:clamp(150px,44vw,240px)}
+}
+@media(max-width:620px){
+  .rail{--slide:clamp(140px,54vw,220px);--gap:12px}
+  .rail-window{
+    -webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);
+    mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);
+  }
+  .rail-card{transform:scale(.84)}
+  .rail-controls{gap:12px;margin-top:24px}
+  .rail-controls>button{width:40px;height:40px}
 }

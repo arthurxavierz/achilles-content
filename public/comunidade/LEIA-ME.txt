@@ -1,0 +1,20 @@
+ACERVO DO CARROSSEL DA COMUNIDADE
+
+Ponha aqui as artes reais que vão aparecer na landing, com estes nomes:
+
+  01.png  02.png  03.png  04.png  05.png
+  06.png  07.png  08.png  09.png  10.png
+
+A lista que o site lê fica em src/lib/community.js. Para usar outro nome,
+outra extensao ou mais de dez pecas, edite aquele arquivo: o carrossel usa
+quantas linhas existirem la.
+
+Formato: as artes saem da plataforma em 4:5, que e a proporcao do cartao.
+Imagem em outra proporcao entra cortada pelo centro.
+
+Peso: cada arquivo e baixado por quem abre a landing. Vale exportar em
+1080x1350 e comprimir antes de subir; acima de uns 400 KB por peca a
+primeira carga da pagina comeca a pesar.
+
+Enquanto o arquivo nao existir, o cartao mostra a placa da marca no lugar,
+e nao o icone de imagem quebrada do navegador.

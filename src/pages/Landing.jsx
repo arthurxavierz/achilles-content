@@ -23,6 +23,7 @@ import { DEMO_MODE } from '../lib/config'
 import { normalizePacks, normalizePlans } from '../lib/normalize'
 import { money, number } from '../lib/format'
 import { CONTACT, waLink } from '../lib/contact'
+import CommunityRail from '../components/CommunityRail'
 import ParticleHero from '../components/ParticleHero'
 import Reveal from '../components/Reveal'
 import SiteFooter from '../components/SiteFooter'
@@ -135,11 +136,6 @@ export default function Landing() {
           <Link to="/criar-conta" className="btn primary">Começar com {FREE_SIGNUP_CREDITS} créditos <ArrowRight size={18} /></Link>
           <a href={wa} className="btn secondary">Falar com a equipe</a>
         </div>
-        <div className="hero-ledger hero-in" style={{ animationDelay: '460ms' }}>
-          <span>Copy primeiro</span>
-          <span>Aprovação antes da imagem</span>
-          <span>Pagamento por PIX</span>
-        </div>
       </div>
       <div className="hero-scroll" aria-hidden="true"><span>ROLE</span><i/></div>
     </section>
@@ -192,6 +188,16 @@ export default function Landing() {
               <p>{text}</p>
             </article>
           )}</div>
+        </div>
+      </Reveal>
+
+      <Reveal as="section" className="community-band section-band" id="comunidade">
+        <div className="section-shell">
+          <div className="section-head split-head">
+            <div><span className="eyebrow">FEITO NA PLATAFORMA</span><h2>Artes geradas pela comunidade.</h2></div>
+            <p>Peças reais, saídas do mesmo fluxo que você vai usar: Brand Brain, copy aprovada e direção de arte antes da imagem.</p>
+          </div>
+          <CommunityRail />
         </div>
       </Reveal>
 
