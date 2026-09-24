@@ -27,6 +27,10 @@ export function normalizePlan(row) {
     features: Array.isArray(row.features) ? row.features : [],
     brands: brandsLabel(row.limits),
     history: historyLabel(row.limits),
+    // Sem estes dois, o selo de destaque e o suporte que a landing mostra
+    // vinham so dos defaults do front e sumiam assim que a API respondia.
+    badge: row.badge || null,
+    support: row.support || null,
     sortOrder: row.sort_order ?? 0
   }
 }

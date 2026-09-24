@@ -51,8 +51,8 @@ export const themeCredits = pricing => creditsOf(pricing, 'theme_suggestion')
 
 // Planos e pacotes iniciais. Espelham supabase/migration-v5.sql.
 export const DEFAULT_PLANS = Object.freeze([
-  { slug:'starter', name:'Starter', priceCents:14700, monthlyCredits:7500, brands:1, history:'90 dias', support:'WhatsApp em horário comercial' },
-  { slug:'pro', name:'Pro', priceCents:29700, monthlyCredits:20000, brands:3, history:'Ilimitado', support:'Prioritário', badge:'MAIS ESCOLHIDO' },
+  { slug:'starter', name:'Starter', priceCents:14700, monthlyCredits:7500, brands:1, history:'90 dias', support:'WhatsApp em horário comercial', badge:'MAIS SOLICITADO' },
+  { slug:'pro', name:'Pro', priceCents:29700, monthlyCredits:20000, brands:3, history:'Ilimitado', support:'Prioritário' },
   { slug:'studio', name:'Studio', priceCents:59700, monthlyCredits:45000, brands:null, history:'Ilimitado', support:'Revisão de Brand Brain' },
   { slug:'agencia', name:'Agência', priceCents:119700, monthlyCredits:100000, brands:null, history:'Ilimitado', support:'Atendimento nomeado' }
 ])

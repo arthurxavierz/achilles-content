@@ -2655,3 +2655,77 @@ body{
   .rail-controls{gap:12px;margin-top:24px}
   .rail-controls>button{width:40px;height:40px}
 }
+
+/* ===== V22. O plano em destaque de verdade, e a vitrine de planos em duas
+   colunas no celular. ===== */
+
+/* DESTAQUE. Ouro cheio, levantado da fileira e com brilho por baixo: a peça
+   tem de ganhar o olho antes de o visitante ler qualquer preço. */
+.landing-v15 .pricing-stage article.spotlight{
+  color:#231a04;
+  border-color:#b8891f;
+  background:linear-gradient(158deg,#ffeaa6 0%,#f3cd63 44%,#d4a231 100%);
+  box-shadow:
+    0 26px 72px rgba(176,128,26,.38),
+    inset 0 1px 0 rgba(255,255,255,.55);
+  transform:translateY(-12px);
+}
+.landing-v15 .pricing-stage article.spotlight:hover{
+  transform:translateY(-19px);
+  border-color:#a87c15;
+  box-shadow:0 34px 86px rgba(176,128,26,.46),inset 0 1px 0 rgba(255,255,255,.55);
+}
+/* Dentro do cartão dourado, tudo que era cinza sobre branco perde contraste. */
+.landing-v15 .spotlight .plan-orbit span{color:#3a2a06;border-color:rgba(58,42,6,.34)}
+.landing-v15 .spotlight .plan-orbit b{
+  color:#f7e6b4;
+  background:#23190a;
+  box-shadow:0 6px 18px rgba(48,34,4,.3);
+}
+.landing-v15 .pricing-stage .spotlight>strong{color:#453109}
+.landing-v15 .pricing-stage .spotlight ul{color:#3d2c08}
+.landing-v15 .pricing-stage .spotlight li svg{color:#4a3408}
+.landing-v15 .pricing-stage .spotlight .price{color:#2b1f03}
+.landing-v15 .pricing-stage .spotlight .price small{color:#5d4614}
+.landing-v15 .pricing-stage .spotlight .btn.primary:hover{background:#3a2a06;border-color:#3a2a06}
+
+@media(max-width:620px){
+  /* DUAS COLUNAS NO CELULAR. Uma coluna obrigava a rolar quatro cartões de
+     altura inteira para comparar preço, que é justamente o que se faz nesta
+     seção. Em duas, os quatro planos cabem em duas telas. */
+  .landing-v15 .pricing-stage{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+  .landing-v15 .pricing-stage article{
+    min-height:0;
+    padding:16px 13px;
+    border-radius:10px;
+  }
+  .landing-v15 .pricing-stage h3{font-size:19px}
+  /* Medido na propria Anton: "R$ 1.197,00" tem 130px em corpo 31, e o
+     conteudo do cartao em tela de 360 tem 133. Sem folga nenhuma, e em tela
+     de 320 estoura. O clamp acompanha a largura da tela. */
+  .landing-v15 .pricing-stage .price{margin:9px 0 5px;font-size:clamp(21px,6.4vw,28px)}
+  .landing-v15 .pricing-stage .price small{font-size:9px;margin-top:1px}
+  .landing-v15 .pricing-stage>article>strong{margin-bottom:13px;font-size:11px;line-height:1.35}
+  .landing-v15 .pricing-stage ul{min-height:0;gap:7px;margin-bottom:15px}
+  .landing-v15 .pricing-stage li{font-size:10.5px;line-height:1.4}
+  .landing-v15 .pricing-stage li svg{width:12px;height:12px;margin-top:1px}
+  .landing-v15 .pricing-stage .btn{width:100%;min-height:40px;padding:0 8px;font-size:11px}
+  /* O selo é longo e o cartão é estreito: ele desce para a própria linha em
+     vez de espremer o número ao lado. */
+  .landing-v15 .plan-orbit{flex-wrap:wrap;gap:7px;margin-bottom:13px}
+  .landing-v15 .plan-orbit span{width:30px;height:30px;font-size:10px}
+  .landing-v15 .plan-orbit b{padding:5px 8px;font-size:8px;white-space:nowrap}
+  /* No grid apertado, levantar o cartão abriria buraco na fileira: o destaque
+     fica por conta da cor e do brilho. */
+  .landing-v15 .pricing-stage article.spotlight,
+  .landing-v15 .pricing-stage article.spotlight:hover{
+    transform:none;
+    box-shadow:0 14px 34px rgba(176,128,26,.42),inset 0 1px 0 rgba(255,255,255,.55);
+  }
+}
+
+/* O "/mes" vinha na mesma linha do preco. No plano de R$ 1.197 a linha nao
+   fechava e ele caia sozinho para baixo, so naquele cartao, desalinhando o
+   bloco de preco em relacao aos vizinhos. Linha propria para todos resolve e
+   fica igual nos quatro. */
+.landing-v15 .pricing-stage .price small{display:block;margin-top:3px}

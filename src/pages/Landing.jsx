@@ -30,6 +30,24 @@ import SiteFooter from '../components/SiteFooter'
 
 const wa = waLink('Olá, quero conhecer o Achilles Content.')
 
+// O selo de destaque e o suporte moram no banco. Enquanto a migração que
+// criou essas colunas não rodar, a API devolve os planos sem nenhum dos dois,
+// e a vitrine ficaria sem destaque e prometendo o mesmo suporte para todo
+// mundo. Nesse caso, e só nesse, o valor dos defaults vale. Assim que o banco
+// tiver o dado, ele manda.
+const fillFromDefaults = list => {
+  const faltaSelo = !list.some(plan => plan.badge)
+  return list.map(plan => {
+    const padrao = DEFAULT_PLANS.find(d => d.slug === plan.slug)
+    if (!padrao) return plan
+    return {
+      ...plan,
+      badge: plan.badge || (faltaSelo ? padrao.badge || null : null),
+      support: plan.support || padrao.support || null
+    }
+  })
+}
+
 const steps = [
   ['01', 'Brand Brain', 'Você registra tom de voz, público, cores, referências e limites da marca.'],
   ['02', 'Copy aprovada', 'A IA escreve posts, stories e carrosséis antes de qualquer gasto com imagem.'],
@@ -88,7 +106,7 @@ export default function Landing() {
   useEffect(() => {
     if (DEMO_MODE) return
     fetch('/.netlify/functions/list-plans').then(r => r.json()).then(d => {
-      if (d.plans?.length) setPlans(normalizePlans(d.plans))
+      if (d.plans?.length) setPlans(fillFromDefaults(normalizePlans(d.plans)))
       if (d.packs?.length) setPacks(normalizePacks(d.packs))
     }).catch(() => {})
     fetch('/.netlify/functions/list-pricing').then(r => r.json()).then(d => {
