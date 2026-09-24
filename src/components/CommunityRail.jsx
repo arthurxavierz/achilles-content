@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { COMMUNITY_ART } from '../lib/community'
 
-// Vitrine das artes geradas na plataforma.
+// Vitrine de artes de referencia, no padrao que o fluxo persegue.
 //
 // Três peças na tela, a do meio em escala cheia, trocando sozinha a cada
 // cinco segundos. O acervo tem dez, então o que passa não é a mesma coisa
@@ -79,7 +79,7 @@ export default function CommunityRail({ items = COMMUNITY_ART }) {
               ? <div className="rail-fallback"><img src="/favicon.png" alt="" /><span>Achilles Content</span></div>
               : <img
                   src={item.src}
-                  alt={active ? 'Arte gerada no Achilles Content' : ''}
+                  alt={active ? `Arte de referência${item.tag ? ' — ' + item.tag : ''}` : ''}
                   loading="lazy"
                   decoding="async"
                   draggable="false"

@@ -2579,7 +2579,16 @@ body{
   opacity:1;
   box-shadow:0 26px 62px rgba(103,78,26,.2);
 }
-.rail-card img{width:100%;height:100%;object-fit:cover;display:block}
+.rail-card img{
+  display:block;
+  width:100%;
+  height:100%;
+  /* O acervo tem peca 4:5 e peca quadrada. Recortar para encher o cartao
+     comeria justamente o texto da arte, que fica no alto ou no pe; entao a
+     peca entra inteira e a quadrada ganha tarja, o que e o menor prejuizo. */
+  object-fit:contain;
+  background:var(--paper-warm);
+}
 .rail-card figcaption{
   position:absolute;
   right:0;

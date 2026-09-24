@@ -1,20 +1,36 @@
-ACERVO DO CARROSSEL DA COMUNIDADE
+ACERVO DO CARROSSEL DA VITRINE
 
-Ponha aqui as artes reais que vão aparecer na landing, com estes nomes:
-
-  01.png  02.png  03.png  04.png  05.png
-  06.png  07.png  08.png  09.png  10.png
-
-A lista que o site lê fica em src/lib/community.js. Para usar outro nome,
-outra extensao ou mais de dez pecas, edite aquele arquivo: o carrossel usa
+As dez pecas que a landing mostra estao aqui, como 01.webp ate 10.webp. A
+lista que o site le fica em src/lib/community.js: e ela que manda, entao para
+trocar, acrescentar ou tirar peca, edite aquele arquivo. O carrossel usa
 quantas linhas existirem la.
 
-Formato: as artes saem da plataforma em 4:5, que e a proporcao do cartao.
-Imagem em outra proporcao entra cortada pelo centro.
+FORMATO
+O cartao e 4:5 e a imagem entra inteira, sem corte. Peca quadrada aparece com
+tarja acima e abaixo, de proposito: e melhor que perder parte da arte.
 
-Peso: cada arquivo e baixado por quem abre a landing. Vale exportar em
-1080x1350 e comprimir antes de subir; acima de uns 400 KB por peca a
-primeira carga da pagina comeca a pesar.
+PESO
+Cada arquivo e baixado por quem abre a landing. O acervo atual soma cerca de
+960 KB em webp, com o lado maior limitado a 1080 px e qualidade 82. Vale
+manter essa ordem de grandeza: acima de uns 400 KB por peca a primeira carga
+da pagina comeca a pesar.
 
-Enquanto o arquivo nao existir, o cartao mostra a placa da marca no lugar,
-e nao o icone de imagem quebrada do navegador.
+Para converter e redimensionar uma peca nova no mesmo padrao:
+  python -c "from PIL import Image; im=Image.open('nova.jpg').convert('RGB'); \
+  e=min(1,1080/max(im.size)); im=im.resize((round(im.width*e),round(im.height*e))); \
+  im.save('11.webp','WEBP',quality=82,method=6)"
+
+NOMES DE MARCA
+As pecas 01, 04, 05, 06, 08 e 10 vieram de template e traziam os nomes de
+exemplo "Borcelle" e "grandesite.com.br". Foram trocados por marcas
+inventadas: Vistalar Imoveis, @estudiolira, Pomarela Restaurante, Pousada
+Maresia, Marcolla Advocacia e @trilhaviva. Nenhum desses nomes foi conferido
+contra registro de empresa ou perfil existente. Se for usar em campanha paga,
+vale conferir.
+
+A peca 02 traz "Faustino Estetica", que nao e nome de template. Ficou como
+estava, porque a troca pedida era so dos nomes de exemplo. Se for cliente
+real, confirme se ele autoriza aparecer aqui.
+
+Enquanto um arquivo da lista nao existir, o cartao mostra a placa da marca no
+lugar, e nao o icone de imagem quebrada do navegador.

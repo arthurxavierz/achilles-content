@@ -194,8 +194,8 @@ export default function Landing() {
       <Reveal as="section" className="community-band section-band" id="comunidade">
         <div className="section-shell">
           <div className="section-head split-head">
-            <div><span className="eyebrow">FEITO NA PLATAFORMA</span><h2>Artes geradas pela comunidade.</h2></div>
-            <p>Peças reais, saídas do mesmo fluxo que você vai usar: Brand Brain, copy aprovada e direção de arte antes da imagem.</p>
+            <div><span className="eyebrow">PADRÃO DE ENTREGA</span><h2>O nível de arte que a plataforma persegue.</h2></div>
+            <p>Referências por segmento, no acabamento que o fluxo busca: Brand Brain, copy aprovada e direção de arte antes de gerar a imagem.</p>
           </div>
           <CommunityRail />
         </div>
