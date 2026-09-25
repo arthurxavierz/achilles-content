@@ -164,6 +164,17 @@ export async function dispatchCopy(generationId){
   }finally{ clearTimeout(timer) }
 }
 
+export async function dispatchAutofill(jobId){
+  const target=`${process.env.APP_URL}/.netlify/functions/analyze-brand-background`
+  const controller=new AbortController()
+  const timer=setTimeout(()=>controller.abort(),8000)
+  try{
+    await fetch(target,{method:'POST',signal:controller.signal,headers:{'content-type':'application/json','x-job-secret':process.env.INTERNAL_JOB_SECRET||''},body:JSON.stringify({job_id:jobId})})
+  }catch(error){
+    console.error('despacho da analise de marca falhou',jobId,error?.message)
+  }finally{ clearTimeout(timer) }
+}
+
 // Estorna somente as pecas que nao chegaram ao cliente. Imagem entregue ja
 // custou dinheiro na OpenAI e nao volta para o saldo.
 export async function refundUnproducedImages(svc,job,generation,reason){

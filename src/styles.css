@@ -2729,3 +2729,148 @@ body{
    bloco de preco em relacao aos vizinhos. Linha propria para todos resolve e
    fica igual nos quatro. */
 .landing-v15 .pricing-stage .price small{display:block;margin-top:3px}
+
+/* ===== V23. Brand Brain guiado: primeiro as imagens, depois a análise. ===== */
+
+/* O PAINEL DE ENTRADA. Em ficha vazia ele vem dourado e grande, porque o
+   formulário em branco é onde o cliente desiste: a tela precisa dizer por
+   onde começar antes de mostrar vinte e dois campos. Com a marca já
+   preenchida, ele encolhe para um painel comum de referências. */
+.bb-start{position:relative}
+.bb-start.guia{
+  border-color:var(--gold-pale);
+  background:linear-gradient(152deg,#fffdf6,#f9f0d9);
+  box-shadow:0 20px 54px rgba(126,91,21,.1);
+}
+.bb-start.guia .panel-head h2{color:var(--gold-deep)}
+.bb-lead{max-width:70ch;margin:0 0 22px;font-size:14px;line-height:1.65;color:var(--muted)}
+
+.bb-steps{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin:0 0 22px;
+  padding:0;
+  list-style:none;
+}
+.bb-steps li{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:14px 16px;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:var(--paper);
+  opacity:.55;
+}
+.bb-steps li.now{opacity:1;border-color:var(--gold);box-shadow:0 8px 24px rgba(126,91,21,.08)}
+.bb-steps li.ok{opacity:1}
+.bb-steps b{
+  display:grid;
+  place-items:center;
+  flex-shrink:0;
+  width:28px;
+  height:28px;
+  border-radius:50%;
+  color:#fff;
+  background:#cdc3ad;
+  font:700 12px Manrope,Arial,sans-serif;
+}
+.bb-steps li.now b{background:var(--gold-deep)}
+.bb-steps li.ok b{background:#3f7d4a}
+.bb-steps strong,.bb-steps span{display:block}
+.bb-steps strong{font-size:13px;color:var(--ink)}
+.bb-steps span{margin-top:2px;font-size:11px;color:var(--muted)}
+
+.bb-actions{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin:20px 0 4px}
+.bb-actions .link-btn{color:var(--muted);font-size:12px;text-decoration:underline;text-underline-offset:3px}
+.bb-actions .link-btn:hover{color:var(--ink)}
+
+.bb-working{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  margin-top:16px;
+  padding:15px 17px;
+  border:1px solid var(--gold-pale);
+  border-radius:10px;
+  background:var(--paper-warm);
+}
+.bb-working strong,.bb-working span{display:block}
+.bb-working strong{font-size:13px;color:var(--ink)}
+.bb-working span{margin-top:3px;font-size:11.5px;color:var(--muted)}
+.bb-spin{
+  flex-shrink:0;
+  width:22px;
+  height:22px;
+  border:2px solid var(--gold-pale);
+  border-top-color:var(--gold-deep);
+  border-radius:50%;
+  animation:spin .8s linear infinite;
+}
+
+/* O SELO. Marca o que veio da análise e some quando o cliente edita: a
+   partir dali o valor é dele, e dizer "sugerido" seria mentira. O texto da
+   evidência fica no title, para não competir com o campo. */
+.bb-tag{
+  display:inline-block;
+  margin-left:7px;
+  padding:3px 7px;
+  border-radius:99px;
+  font:800 8.5px/1 Manrope,Arial,sans-serif;
+  letter-spacing:.3px;
+  text-transform:uppercase;
+  font-style:normal;
+  color:var(--gold-deep);
+  background:#f7ecc9;
+  border:1px solid var(--gold-pale);
+  cursor:help;
+  vertical-align:middle;
+}
+.bb-tag.check{color:#8a4b12;background:#fbe8d4;border-color:#efc9a2}
+/* Dentro do campo o selo vai para o canto: o rótulo é linha de grid, e
+   deixá-lo no fluxo abriria uma linha só para ele. */
+.brand-form label{position:relative}
+.brand-form label>.bb-tag{position:absolute;top:0;right:0;margin:0}
+
+/* CONFLITO. Duas peças discordaram e a análise não escolheu sozinha. */
+.bb-conflicts{border-color:#e7cfa4;background:linear-gradient(160deg,#fffcf3,#fdf4e2)}
+.bb-conflict{padding:16px 0;border-top:1px solid var(--line)}
+.bb-conflict:first-of-type{border-top:0}
+.bb-conflict>div:first-child{display:flex;align-items:center;gap:8px;color:var(--gold-deep)}
+.bb-conflict strong{font-size:13px;color:var(--ink)}
+.bb-conflict p{margin:8px 0 12px;font-size:12.5px;line-height:1.55;color:var(--muted)}
+.bb-options{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.bb-options .small-btn{border-color:var(--gold-pale);background:var(--paper)}
+.bb-options .small-btn:hover{border-color:var(--gold);color:var(--gold-deep)}
+.bb-options .link-btn{font-size:11.5px;color:var(--muted);text-decoration:underline;text-underline-offset:3px}
+
+/* PERGUNTAS. O que imagem nenhuma responde: preço, prazo, garantia. Fica
+   como pergunta em vez de virar campo inventado. */
+.bb-questions ul{margin:0;padding:0;list-style:none;display:grid;gap:9px}
+.bb-questions li{
+  display:flex;
+  align-items:flex-start;
+  gap:9px;
+  padding:12px 14px;
+  border:1px solid var(--line);
+  border-radius:9px;
+  background:var(--paper);
+  font-size:12.5px;
+  line-height:1.5;
+  color:var(--ink);
+}
+.bb-questions li svg{flex-shrink:0;margin-top:2px;color:var(--gold-deep)}
+
+@media(max-width:760px){
+  .bb-steps{grid-template-columns:1fr}
+  .bb-lead{font-size:13px}
+  .bb-actions{gap:12px}
+  .bb-actions .btn{width:100%}
+  .brand-form label>.bb-tag{position:static;margin-left:7px}
+}
+
+/* Formulário enquanto a análise não volta. Sem pointer-events o cliente
+   digitaria num campo que a sugestão vai sobrescrever em seguida; a página
+   continua rolando normalmente, que é o que ele precisa poder fazer. */
+.brand-form.working{opacity:.55;pointer-events:none;transition:opacity .2s ease}

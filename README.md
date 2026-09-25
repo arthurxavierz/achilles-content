@@ -54,6 +54,9 @@ Oito passos. Faça na ordem.
    - `supabase/migration-v11.sql`
    - `supabase/migration-v12.sql`
    - `supabase/migration-v13.sql`
+   - `supabase/migration-v14.sql`
+   - `supabase/migration-v15.sql`
+   - `supabase/migration-v16.sql`
 
    Todos são idempotentes: pode rodar de novo sem quebrar nada.
 3. Em **Project Settings → API**, copie:
@@ -139,6 +142,12 @@ Nesta ordem, e só considere no ar quando os oito passarem:
 **Todo dia útil:** abrir o `/admin` e limpar a fila de **Conciliação**. É onde os PIX pagos esperam sua confirmação. Confira o extrato do banco antes de clicar em confirmar — a confirmação concede os créditos na hora e fica registrada no log de auditoria.
 
 **Toda semana:** olhar o card de **margem do mês**. Se cair abaixo de 50% o card fica vermelho. Quando isso acontecer, o caminho é a aba de histórico do cliente: cada geração mostra o custo real em dólar, então dá para achar quem está consumindo desproporcionalmente.
+
+**Autopreenchimento do Brand Brain.** A tela lê as imagens de referência do cliente e propõe os 22 campos, a 50 créditos (`pricing.brand_analysis`). Quantas imagens entram na leitura é `app_settings.brand_autofill_images`, padrão 4: é esse número que governa o custo na OpenAI, e mexer nele não exige deploy. A conta do onboarding fecha exata — 50 de análise + 50 de copy de post + 100 de imagem padrão = os 200 créditos de cortesia.
+
+O `OPENAI_TEXT_MODEL` precisa ser um modelo que enxerga imagem — a análise manda as peças no mesmo endpoint `/v1/responses` que a copy usa. Modelo só de texto responde 400 e o cliente vê a mensagem de configuração recusada.
+
+O gasto em dólar da análise fica no resultado do job, em `brand_autofill_jobs.result.usd`, e **não** entra no teto de `MONTHLY_API_CEILING_USD`, que só soma `generations.cost_usd`.
 
 **Quando quiser reajustar preço:** não precisa de deploy. `update public.pricing set credits=... where slug='...'` no SQL Editor. O catálogo tem cache de 60 segundos, então o novo valor aparece em até um minuto.
 
