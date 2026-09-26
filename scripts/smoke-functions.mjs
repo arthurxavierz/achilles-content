@@ -40,6 +40,7 @@ const ANALISE=JSON.stringify({
 })
 const chamadas=[]
 const gravacoes=[]
+const prompts=[]
 let analises=0
 
 // Resposta no formato certo e com conteudo errado: preset que nao existe,
@@ -73,11 +74,23 @@ const JOB={
   refunded_at:null, generations:GERACAO
 }
 
+const MARCA={
+  user_id:GERACAO.user_id, brand_name:'Achilles', primary_color:'#b78415', secondary_color:'#111',
+  visual_rules:'r', references_text:'ref', recurring_elements:'mascote',
+  text_style:'Título em caixa alta no rodapé, subtítulo acima dele.',
+  typography:'Anton', preset_slug:'gold_tech', copy_rules:'', image_rules:'', render_text:true
+}
+
 const AUTOFILL={
   id:'44444444-4444-4444-4444-444444444444', user_id:GERACAO.user_id,
   status:'queued', images_used:0, result:null, error:null,
   charged_plan:0, charged_extra:0
 }
+
+// Geracao para o worker de copy: sem copy_json, senao ele sai na primeira
+// linha por ja considerar o trabalho feito - e o teste passaria sem executar.
+const PARA_COPY={...GERACAO,id:'55555555-5555-5555-5555-555555555555',copy_json:null,status:'copy_queued'}
+let modo='imagem'
 
 function tabela(url){
   const m=/\/rest\/v1\/([a-z_]+)/.exec(url)
@@ -96,6 +109,7 @@ globalThis.fetch=async (url,init={})=>{
 
   // --- OpenAI ---
   if(u.includes('api.openai.com/v1/responses')){
+    if(String(init.body||'').includes('content_copy')) prompts.push('COPY:'+String(init.body||''))
     if(String(init.body||'').includes('brand_brain')){
       analises+=1
       return resp({output_text:analises===1?ANALISE:LIXO,usage:{input_tokens:5200,output_tokens:1800}})
@@ -103,6 +117,9 @@ globalThis.fetch=async (url,init={})=>{
     return resp({output_text:JSON.stringify({palette:['ouro'],lighting:'l',texture:'t',composition:'c',mood:'m',recurring_elements:['mascote'],scenes:Array.from({length:5},(_,i)=>({subject:`s${i}`,detail:'d'}))}),usage:{input_tokens:900,output_tokens:400}})
   }
   if(u.includes('api.openai.com/v1/images/')){
+    // Guarda o prompt que foi realmente enviado. O subtitulo sumia da arte
+    // por ser cortado aqui dentro, em silencio, e nada apontava isso.
+    try{ prompts.push(String(init.body?.get?.('prompt')||init.body||'')) }catch{}
     return resp({data:[{b64_json:PNG_B64}],usage:{input_tokens:1200,output_tokens:1300}})
   }
   if(u.includes('api.openai.com/v1/models')) return resp({data:[{id:'gpt-image-2.5-flare'},{id:'gpt-5.1'}]})
@@ -127,8 +144,15 @@ globalThis.fetch=async (url,init={})=>{
   // --- Supabase REST ---
   const t=tabela(u)
   if(t==='generation_jobs') return resp(single?JOB:[JOB])
-  if(t==='generations') return resp(single?GERACAO:[GERACAO])
-  if(t==='brand_profiles') return resp(single?{user_id:GERACAO.user_id,brand_name:'Achilles',primary_color:'#b78415',secondary_color:'#111',visual_rules:'r',references_text:'ref',recurring_elements:'mascote',text_style:'caps',typography:'Anton',preset_slug:'gold_tech',copy_rules:'',image_rules:''}:[{}])
+  if(t==='generations'){
+    const linha=modo==='copy'?PARA_COPY:GERACAO
+    return resp(single?linha:[linha])
+  }
+  // maybeSingle() nao pede o cabecalho de objeto unico: devolve lista e pega
+  // o primeiro. Enquanto o mock mandava [{}] aqui, todo worker que le a marca
+  // por maybeSingle recebia marca vazia, e o teste passava sem exercitar o
+  // caminho em que a marca declara as proprias regras.
+  if(t==='brand_profiles') return resp(single?MARCA:[MARCA])
   if(t==='brand_autofill_jobs'){
     // Guarda o que o worker grava: HTTP 200 nao prova que o conteudo saiu
     // certo, e o conteudo e o produto desta funcao.
@@ -177,7 +201,9 @@ async function roda(nome,arquivo,ev){
 
 console.log('--- executando handlers com Supabase e OpenAI mockados ---')
 await roda('worker de imagem (5 artes, com referencia e texto)','generate-images-background.js',evento({job_id:JOB.id}))
-await roda('worker de copy','generate-copy-background.js',evento({generation_id:GERACAO.id}))
+modo='copy'
+await roda('worker de copy','generate-copy-background.js',evento({generation_id:PARA_COPY.id}))
+modo='imagem'
 await roda('worker de analise de marca (4 imagens)','analyze-brand-background.js',evento({job_id:AUTOFILL.id}))
 await roda('worker de analise com resposta suja','analyze-brand-background.js',evento({job_id:AUTOFILL.id}))
 // --- o que a analise de marca gravou ---
@@ -221,6 +247,19 @@ if(!sujo){
   confere('teto de confianca do campo prevalece', BRAND_FIELDS.filter(f=>f.tier!=='high').every(f=>c[f.key]?.confidence!=='high'))
   confere('conflito de campo inexistente e descartado', (sujo.result?.conflicts||[]).length===0)
 }
+
+// --- o prompt que chegou no gerador de imagem ---
+// O subtitulo era cortado em silencio quando passava de 110 caracteres, e
+// a plataforma ditava a diagramacao por cima do que a marca declarou.
+const arte=prompts[0]||''
+confere('subtitulo do slide chega no prompt da arte', arte.includes('Subtitulo:'.replace('Subtitulo','Subtítulo')))
+confere('subtitulo e declarado obrigatorio', arte.includes('sem o subtítulo está errada'))
+confere('referencia e estilo, nao gabarito', arte.includes('NÃO TIRE DELAS'))
+confere('diagramacao da marca prevalece', arte.includes('no lugar que aquele bloco indicar'))
+confere('peca irma do carrossel e identificada', (prompts[1]||'').includes('outra peça desta mesma sequência'))
+const copyPrompt=prompts.find(x=>x.startsWith('COPY:'))||''
+confere('a copy sabe que o texto vai ser desenhado', copyPrompt.includes('O TEXTO VAI SER DESENHADO NA ARTE'))
+confere('a copy recebe limite de tamanho para caber na arte', copyPrompt.includes('90 caracteres'))
 
 console.log(falhas?`\n${falhas} verificacao(oes) com problema.`:'\nTodos os handlers rodaram do inicio ao fim.')
 process.exit(falhas?1:0)

@@ -10,7 +10,7 @@ const field=(label,value)=>value?`${label}: ${value}`:null
 
 // O estilo e sugestao da plataforma. Se a marca escreveu as proprias
 // regras, elas substituem o padrao por inteiro.
-function buildPrompt({theme,format,brand,defaultStyle,slideCount}){
+function buildPrompt({theme,format,brand,defaultStyle,slideCount,renderText}){
   const style=String(brand?.copy_rules||'').trim() || defaultStyle || ''
   const n=Math.max(1,Number(slideCount)||1)
   const slides=format==='carousel'
@@ -24,6 +24,18 @@ function buildPrompt({theme,format,brand,defaultStyle,slideCount}){
     field('Guardrails',brand?.guardrails), field('Termos proibidos',brand?.forbidden_terms)
   ].filter(Boolean).join('\n')
 
+  // Quando o texto vai ser desenhado na arte, o tamanho dele deixa de ser
+  // gosto e vira limite fisico. Sem este aviso o modelo escrevia subtitulo de
+  // duas linhas e meia, que nao cabe em peca nenhuma - e o gerador de imagem
+  // simplesmente engolia o subtitulo, o que fazia a arte sair so com titulo.
+  const naArte=renderText?`
+
+O TEXTO VAI SER DESENHADO NA ARTE
+Título e subtítulo de cada slide serão escritos sobre a imagem. Escreva para caber:
+Título: no máximo 45 caracteres, sem ponto final.
+Subtítulo: no máximo 90 caracteres, uma frase só, que complete o título em vez de repetir.
+A legenda e as hashtags não vão na arte e seguem livres.`:''
+
   return `Você escreve para redes sociais em português do Brasil, no padrão de uma agência que cobra caro pelo que entrega.
 
 TEMA DA PUBLICAÇÃO
@@ -33,7 +45,7 @@ MARCA
 ${marca||'Marca sem Brand Brain preenchido. Escreva de forma neutra e profissional.'}
 
 FORMATO
-${format}. Gere ${slides}.
+${format}. Gere ${slides}.${naArte}
 
 REGRAS DE ESCRITA
 ${style}
@@ -60,7 +72,7 @@ export async function handler(event){
 
     const raw=await openaiFetch('https://api.openai.com/v1/responses',
       {method:'POST',headers:{authorization:`Bearer ${process.env.OPENAI_API_KEY}`,'content-type':'application/json'},
-       body:JSON.stringify({model:process.env.OPENAI_TEXT_MODEL,input:buildPrompt({theme:g.theme,format:g.format,brand,defaultStyle:settings.copy_style_default,slideCount:g.image_count}),text:{format:{type:'json_schema',name:'content_copy',strict:true,schema}}})},
+       body:JSON.stringify({model:process.env.OPENAI_TEXT_MODEL,input:buildPrompt({theme:g.theme,format:g.format,brand,defaultStyle:settings.copy_style_default,slideCount:g.image_count,renderText:g.render_text??brand?.render_text??false}),text:{format:{type:'json_schema',name:'content_copy',strict:true,schema}}})},
       {label:'copy',timeoutMs:Number(settings.openai_text_timeout_ms||90000),retries:Number(settings.openai_retries??2)})
 
     const output=raw.output_text||raw.output?.flatMap(x=>x.content||[]).find(x=>x.type==='output_text')?.text

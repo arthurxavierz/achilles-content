@@ -43,7 +43,7 @@ A paleta sai da identidade da marca, não do preset. Se a marca descreve um fund
 Em recurring_elements repita o que a marca declarou acima como recorrente. Se ela não declarou nada, extraia da referência visual o que aparece em toda peça: mascote, motivos gráficos, tipo de interface, texturas de fundo. Não havendo nada, devolva lista vazia.
 Cada cena descreve um assunto visual concreto e construível, nunca um conceito abstrato.
 Elementos de interface, HUD, gráficos, circuitos e dashboards são permitidos quando a marca os usa, desde que sem nenhum rótulo escrito.
-${g.render_text?'O título da peça será escrito sobre a arte, então cada cena precisa deixar a faixa superior limpa e de contraste uniforme, com o assunto na metade inferior ou na lateral.':''}
+${g.render_text?(String(brand?.text_style||'').trim()?'O texto da peça será escrito sobre a arte, seguindo esta regra de diagramação da marca: '+String(brand.text_style).trim()+' Cada cena precisa reservar área de contraste uniforme onde esse texto cai, com o assunto fora dela.':'O texto da peça será escrito sobre a arte, então cada cena precisa deixar a faixa superior limpa e de contraste uniforme, com o assunto na metade inferior ou na lateral.'):''}
 As cenas variam de enquadramento entre si, mas mantêm a mesma paleta, luz, textura e elementos recorrentes.
 Adapte o assunto ao nicho tratado no slide, sem trocar o estilo da marca.`
 
@@ -72,19 +72,25 @@ Reserve uma área ampla e de contraste uniforme para a tipografia ser aplicada d
 
   const title=String(slide?.title||'').trim()
   const subtitle=String(slide?.subtitle||'').trim()
-  // Subtitulo longo vira parede de texto na arte e o modelo erra mais.
-  const support=subtitle.length>0&&subtitle.length<=110?subtitle:''
+
+  // A marca manda na diagramacao. Enquanto a posicao do texto era fixa aqui,
+  // a plataforma decidia a arte de todo cliente - titulo no alto, a esquerda,
+  // assunto embaixo - e era por isso que peca nenhuma escapava do mesmo
+  // formato. O padrao abaixo so entra quando a marca nao disse como quer.
+  const declarado=String(brand?.text_style||'').trim()
+  const padrao='Tipografia condensada pesada em caixa alta. Título em branco com uma palavra destacada na cor principal da marca. Subtítulo menor, peso regular, logo abaixo do título.'
 
   return `TEXTO QUE VAI NA ARTE
 Escreva na imagem, exatamente como está entre aspas, sem alterar nenhuma letra, acento ou pontuação:
-Título: "${title}"${support?`
-Apoio: "${support}"`:''}
+Título: "${title}"${subtitle?`
+Subtítulo: "${subtitle}"`:''}
+${subtitle?`
+As duas linhas são obrigatórias. Peça com o título e sem o subtítulo está errada e será recusada.`:''}
 
 Como aplicar:
-${brand?.text_style||'Tipografia condensada pesada em caixa alta. Título em branco com uma palavra destacada na cor principal da marca.'}
+${declarado||padrao}
 ${brand?.typography?`Referência de tipografia: ${brand.typography}.`:''}
-O título ocupa a faixa superior da peça, alinhado à esquerda, em no máximo três linhas, com margem folgada até a borda.
-O texto fica sobre área limpa e de alto contraste, nunca por cima do rosto do personagem nem de detalhe importante.
+O bloco de texto fica sobre área de contraste uniforme, com margem folgada até a borda, nunca por cima do rosto do personagem nem de detalhe importante.
 
 Regras do texto, inegociáveis:
 Nenhuma palavra além das citadas acima. Não invente, não traduza, não repita, não acrescente assinatura, site, arroba ou marca d'água.
@@ -125,7 +131,7 @@ ESTILO BASE, aplicar somente no que não conflitar com a identidade da marca
 ${preset?.prompt_block||''}
 
 ENQUADRAMENTO
-${renderText?'Deixe a faixa superior da peça limpa e de contraste uniforme para receber o título; posicione o personagem e os elementos principais na metade inferior ou na lateral. ':''}${safeCrop?`A peça será recortada para ${safeCrop} a partir do centro. Mantenha o assunto principal, o personagem e qualquer elemento essencial dentro da faixa central, com margem de segurança generosa no topo e na base. Nada importante encostado nas bordas.`:'Componha para a proporção inteira do quadro, sem elemento essencial encostado nas bordas.'}
+${renderText?(String(brand?.text_style||'').trim()?'Reserve uma área de contraste uniforme para o bloco de texto descrito abaixo, no lugar que aquele bloco indicar, e mantenha o assunto fora dela. ':'Deixe a faixa superior da peça limpa e de contraste uniforme para receber o texto; posicione o personagem e os elementos principais na metade inferior ou na lateral. '):''}${safeCrop?`A peça será recortada para ${safeCrop} a partir do centro. Mantenha o assunto principal, o personagem e qualquer elemento essencial dentro da faixa central, com margem de segurança generosa no topo e na base. Nada importante encostado nas bordas.`:'Componha para a proporção inteira do quadro, sem elemento essencial encostado nas bordas.'}
 
 ${textBlock({brand,slide,render:renderText})}
 
@@ -136,7 +142,7 @@ ${finish}`
 // Referencias anexadas ao pedido. Sao de duas origens e as duas importam:
 // as da marca (mascote, tratamento visual) e a primeira arte da geracao
 // (consistencia entre os slides do carrossel).
-async function callImageApi({model,prompt,size,quality,references,fidelity,timeouts}){
+async function callImageApi({model,prompt,size,quality,references,fidelity,timeouts,last}){
   const list=(references||[]).filter(Boolean)
   if(!list.length){
     return openaiFetch('https://api.openai.com/v1/images/generations',
@@ -149,9 +155,15 @@ async function callImageApi({model,prompt,size,quality,references,fidelity,timeo
   form.append('prompt',`${prompt}
 
 REFERÊNCIA VISUAL ANEXADA
-As imagens anexadas são peças reais desta marca. Reproduza fielmente o tratamento delas: paleta, iluminação, acabamento, tipo de interface e qualquer personagem ou motivo gráfico que apareça nelas.
-Não copie a composição nem o assunto: construa a cena descrita acima com o visual das referências.
-Não copie o texto que aparece nas referências: a peça tem o texto próprio definido acima, ou nenhum.`)
+As imagens anexadas são peças já publicadas por esta marca. Elas existem para você aprender o ESTILO dela. Só isso.
+
+TIRE DELAS: paleta, iluminação, tratamento de cor, acabamento, textura, e qualquer mascote, personagem ou motivo gráfico próprio da marca, que deve reaparecer na peça nova.
+
+NÃO TIRE DELAS, em hipótese alguma: a diagramação, a posição do logo, a posição e a existência de barras ou tarjas, o enquadramento, o ângulo de câmera, a pose das pessoas, o assunto e o texto. Nada disso se repete.
+
+A peça nova é composta do zero a partir da CENA descrita acima. Se o resultado parecer a referência com o objeto trocado, está errado. O acerto é uma peça que ninguém confunde com as anexadas e que qualquer pessoa reconhece como da mesma marca.${last?`
+
+A ÚLTIMA IMAGEM ANEXADA é outra peça desta mesma sequência, não uma referência de marca. Mantenha a mesma linguagem visual dela, e mude o enquadramento, o ângulo e o assunto: duas peças iguais lado a lado no carrossel são um defeito.`:''}`)
   form.append('size',size)
   form.append('quality',quality)
   // input_fidelity so existe na familia gpt-image-1. No 2.5 a fidelidade a
@@ -222,7 +234,10 @@ export async function handler(event){
 
     for(let i=j.done_count;i<j.total_count;i++){
       const prompt=buildImagePrompt({g,brand,preset,direction,index:i,safeCrop,renderText,defaultFinish:settings.image_style_default})
-      const payload=await callImageApi({model,prompt,size,quality,fidelity,timeouts,references:[...brandRefs,previous]})
+      // `last` avisa o prompt de que a ultima anexada e peca irma do mesmo
+      // carrossel, e nao referencia de marca: sem isso o modelo a trata como
+      // gabarito e os slides saem identicos.
+      const payload=await callImageApi({model,prompt,size,quality,fidelity,timeouts,references:[...brandRefs,previous],last:Boolean(previous)})
       const b64=payload.data?.[0]?.b64_json
       if(!b64)throw apiError(`A arte ${i+1} voltou vazia do serviço de geração.`,`images sem b64_json na posicao ${i+1}`)
       const bytes=Buffer.from(b64,'base64')
